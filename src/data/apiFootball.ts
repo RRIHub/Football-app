@@ -36,7 +36,9 @@ export const FEATURED_IDS = [
   61, 62, // France: Ligue 1, Ligue 2
   88, 94, // Eredivisie, Primeira Liga
   2, 3, 848, // Champions League, Europa League, Conference League
-  1, 4, 5, 10, // World Cup, Euro, Nations League, Friendlies
+  1, 4, 9, 6, // World Cup, Euro Championship, Copa América, Africa Cup of Nations
+  5, 10, // UEFA Nations League, international friendlies
+  32, 34, 29, 30, 31, // World Cup qualifying: Europe, South America, Africa, Asia, CONCACAF
 ];
 
 interface Envelope<T> {
@@ -121,15 +123,18 @@ const CLUB_CONTINENTAL = /club|libertadores|sudamericana|champions league|europa
 
 export function mapLeague(e: AfLeagueEntry): Competition {
   const world = e.country.name === 'World';
-  const international = world && INTERNATIONAL.test(e.league.name) && !CLUB_CONTINENTAL.test(e.league.name);
+  const name = e.league.name;
+  const friendlies = /friendlies/i.test(name);
+  const international = world && INTERNATIONAL.test(name) && !CLUB_CONTINENTAL.test(name);
   const category: CompetitionCategory = international
     ? 'international'
-    : world
+    : world && !friendlies
       ? 'europe'
-      : e.league.type === 'Cup'
+      : e.league.type === 'Cup' || friendlies
         ? 'cup'
         : 'domestic';
-  const format = category === 'cup' ? 'knockout' : category === 'international' ? 'groups' : 'league';
+  // Friendlies (national or club) have no table: just a list of matches.
+  const format = category === 'cup' || friendlies ? 'knockout' : category === 'international' ? 'groups' : 'league';
   const season = e.seasons.find((s) => s.current)?.year ?? e.seasons.at(-1)?.year;
   return {
     code: String(e.league.id),

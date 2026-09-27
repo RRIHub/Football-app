@@ -16,10 +16,11 @@ function dayLabel(offset: number, date: Date): string {
 }
 
 export function ScoresPage() {
-  const { followedTeams } = useApp();
+  const { followedTeams, competition } = useApp();
   const [offset, setOffset] = useState(0);
   const [liveOnly, setLiveOnly] = useState(false);
   const [mine, setMine] = useState(false);
+  const [intl, setIntl] = useState(false);
   const [code, setCode] = usePersistentState('footiq.scoresCompetition', 'ALL');
   // Live games are always today's.
   const res = useMatchesOnDay(liveOnly ? 0 : offset);
@@ -39,6 +40,7 @@ export function ScoresPage() {
   const matches = (res.data ?? [])
     .filter((m) => !liveOnly || m.status === 'LIVE')
     .filter((m) => code === 'ALL' || m.competition.code === code)
+    .filter((m) => !intl || competition(m.competition.code)?.category === 'international')
     .filter((m) => !mine || followedTeams.isFollowing(m.home.id) || followedTeams.isFollowing(m.away.id))
     .sort((a, b) => a.utcDate.localeCompare(b.utcDate));
 
@@ -71,6 +73,9 @@ export function ScoresPage() {
         <button className={`pill ${mine ? 'active' : ''}`} onClick={() => setMine((v) => !v)}>
           My teams
         </button>
+        <button className={`pill ${intl ? 'active' : ''}`} onClick={() => setIntl((v) => !v)}>
+          Internationals
+        </button>
         <CompetitionSelect value={code} onChange={setCode} allLabel="All competitions" />
       </div>
       {res.error && !res.data ? (
@@ -85,7 +90,9 @@ export function ScoresPage() {
               ? 'No matches in play right now.'
               : mine
                 ? 'None of your teams play on this day.'
-                : 'No matches on this day.'
+                : intl
+                  ? 'No international matches on this day.'
+                  : 'No matches on this day.'
           }
         />
       )}

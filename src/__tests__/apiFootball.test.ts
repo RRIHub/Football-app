@@ -35,6 +35,14 @@ describe('API-Football mapping', () => {
     expect(mapLeague(entry(32, 'World Cup - Qualification Europe', 'Cup', 'World'))).toMatchObject({ category: 'international' });
     expect(mapLeague(entry(4, 'Euro Championship', 'Cup', 'World')).category).toBe('international');
     expect(mapLeague(entry(999, 'Liga 3', 'League', 'Romania')).featured).toBe(false);
+    // International tournaments and friendlies.
+    expect(mapLeague(entry(9, 'Copa America', 'Cup', 'World'))).toMatchObject({ category: 'international', featured: true });
+    expect(mapLeague(entry(6, 'Africa Cup of Nations', 'Cup', 'World'))).toMatchObject({ category: 'international', featured: true });
+    expect(mapLeague(entry(5, 'UEFA Nations League', 'Cup', 'World'))).toMatchObject({ category: 'international', format: 'groups' });
+    expect(mapLeague(entry(10, 'Friendlies', 'Cup', 'World'))).toMatchObject({ category: 'international', format: 'knockout', featured: true });
+    // Club competitions stay out of the international section.
+    expect(mapLeague(entry(667, 'Friendlies Clubs', 'Cup', 'World'))).toMatchObject({ category: 'cup', format: 'knockout' });
+    expect(mapLeague(entry(15, 'FIFA Club World Cup', 'Cup', 'World')).category).toBe('europe');
   });
 
   it('maps every live and finished status accurately', () => {

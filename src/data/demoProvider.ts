@@ -32,7 +32,12 @@ const COMPETITIONS: Competition[] = [
   { code: 'FL1', name: 'Ligue 1', area: 'France', flag: '🇫🇷', category: 'domestic', format: 'league', featured: true },
   { code: 'EFL', name: 'EFL Cup', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'cup', format: 'knockout', featured: true },
   { code: 'CL', name: 'UEFA Champions League', area: 'Europe', flag: '🇪🇺', category: 'europe', format: 'league', featured: true },
-  { code: 'UNL', name: 'UEFA Nations League', area: 'Europe', flag: '🌍', category: 'international', format: 'groups', featured: true },
+  { code: 'WC', name: 'FIFA World Cup', area: 'World', flag: '🌍', category: 'international', format: 'groups', featured: true },
+  { code: 'EC', name: 'European Championship', area: 'Europe', flag: '🇪🇺', category: 'international', format: 'groups', featured: true },
+  { code: 'CA', name: 'Copa América', area: 'South America', flag: '🌎', category: 'international', format: 'groups', featured: true },
+  { code: 'AFCON', name: 'Africa Cup of Nations', area: 'Africa', flag: '🌍', category: 'international', format: 'groups', featured: true },
+  { code: 'UNL', name: 'UEFA Nations League', area: 'Europe', flag: '🇪🇺', category: 'international', format: 'groups', featured: true },
+  { code: 'FRI', name: 'International Friendlies', area: 'World', flag: '🤝', category: 'international', format: 'knockout', featured: true },
 ];
 
 const LEAGUE_TEAMS: Record<string, { idBase: number; nation: string; teams: TeamSeed[] }> = {
@@ -173,23 +178,35 @@ const EXTRA_CL: { area: string; team: TeamSeed }[] = [
 ];
 
 
-const NATIONS: { group: string; team: TeamSeed }[] = [
-  { group: 'Group A1', team: ['Spain', 'Spain', 'ESP', '#c60b1e'] },
-  { group: 'Group A1', team: ['Portugal', 'Portugal', 'POR', '#006600'] },
-  { group: 'Group A1', team: ['Netherlands', 'Netherlands', 'NED', '#f36c21'] },
-  { group: 'Group A1', team: ['Scotland', 'Scotland', 'SCO', '#1c2c5b'] },
-  { group: 'Group A2', team: ['France', 'France', 'FRA', '#002395'] },
-  { group: 'Group A2', team: ['Italy', 'Italy', 'ITA', '#0066cc'] },
-  { group: 'Group A2', team: ['Belgium', 'Belgium', 'BEL', '#e30613'] },
-  { group: 'Group A2', team: ['Denmark', 'Denmark', 'DEN', '#c8102e'] },
-  { group: 'Group A3', team: ['Germany', 'Germany', 'GER', '#1f2937'] },
-  { group: 'Group A3', team: ['Croatia', 'Croatia', 'CRO', '#e1261c'] },
-  { group: 'Group A3', team: ['Switzerland', 'Switzerland', 'SUI', '#d52b1e'] },
-  { group: 'Group A3', team: ['Norway', 'Norway', 'NOR', '#ba0c2f'] },
-  { group: 'Group A4', team: ['England', 'England', 'ENG', '#1e3a8a'] },
-  { group: 'Group A4', team: ['Brazil', 'Brazil', 'BRA', '#009c3b'] },
-  { group: 'Group A4', team: ['Argentina', 'Argentina', 'ARG', '#75aadb'] },
-  { group: 'Group A4', team: ['Wales', 'Wales', 'WAL', '#c8102e'] },
+type Confederation = 'UEFA' | 'CONMEBOL' | 'CONCACAF' | 'CAF' | 'AFC';
+
+const NATIONS: { conf: Confederation; team: TeamSeed }[] = [
+  // UEFA – the first 16 make up the Nations League groups, four at a time.
+  ...([
+    ['Spain', 'ESP', '#c60b1e'], ['Portugal', 'POR', '#006600'], ['Netherlands', 'NED', '#f36c21'], ['Scotland', 'SCO', '#1c2c5b'],
+    ['France', 'FRA', '#002395'], ['Italy', 'ITA', '#0066cc'], ['Belgium', 'BEL', '#e30613'], ['Denmark', 'DEN', '#c8102e'],
+    ['Germany', 'GER', '#1f2937'], ['Croatia', 'CRO', '#e1261c'], ['Switzerland', 'SUI', '#d52b1e'], ['Norway', 'NOR', '#ba0c2f'],
+    ['England', 'ENG', '#1e3a8a'], ['Serbia', 'SRB', '#c6363c'], ['Wales', 'WAL', '#c8102e'], ['Austria', 'AUT', '#ed2939'],
+  ] as const).map(([n, tla, c]) => ({ conf: 'UEFA' as const, team: [n, n, tla, c] as TeamSeed })),
+  ...([
+    ['Brazil', 'BRA', '#009c3b'], ['Argentina', 'ARG', '#75aadb'], ['Uruguay', 'URU', '#5ba3dc'], ['Colombia', 'COL', '#fcd116'],
+    ['Ecuador', 'ECU', '#ffdd00'], ['Chile', 'CHI', '#d52b1e'], ['Paraguay', 'PAR', '#d52b1e'], ['Peru', 'PER', '#d91023'],
+    ['Venezuela', 'VEN', '#7a1f2b'], ['Bolivia', 'BOL', '#007934'],
+  ] as const).map(([n, tla, c]) => ({ conf: 'CONMEBOL' as const, team: [n, n, tla, c] as TeamSeed })),
+  ...([
+    ['United States', 'USA', '#1d3557'], ['Mexico', 'MEX', '#006847'], ['Canada', 'CAN', '#d52b1e'],
+    ['Costa Rica', 'CRC', '#002b7f'], ['Panama', 'PAN', '#d21034'], ['Jamaica', 'JAM', '#fed100'],
+  ] as const).map(([n, tla, c]) => ({ conf: 'CONCACAF' as const, team: [n, n === 'United States' ? 'USA' : n, tla, c] as TeamSeed })),
+  ...([
+    ['Morocco', 'MAR', '#c1272d'], ['Senegal', 'SEN', '#00853f'], ['Nigeria', 'NGA', '#008751'], ['Egypt', 'EGY', '#ce1126'],
+    ['Ivory Coast', 'CIV', '#f77f00'], ['Ghana', 'GHA', '#006b3f'], ['Algeria', 'ALG', '#006233'], ['Cameroon', 'CMR', '#007a5e'],
+    ['Tunisia', 'TUN', '#e70013'], ['Mali', 'MLI', '#14b53a'], ['South Africa', 'RSA', '#007749'], ['DR Congo', 'COD', '#007fff'],
+    ['Burkina Faso', 'BFA', '#ef2b2d'], ['Guinea', 'GUI', '#ce1126'], ['Cape Verde', 'CPV', '#003893'], ['Zambia', 'ZAM', '#198a00'],
+  ] as const).map(([n, tla, c]) => ({ conf: 'CAF' as const, team: [n, n, tla, c] as TeamSeed })),
+  ...([
+    ['Japan', 'JPN', '#000080'], ['South Korea', 'KOR', '#cd2e3a'], ['Australia', 'AUS', '#ffcd00'],
+    ['Iran', 'IRN', '#239f40'], ['Saudi Arabia', 'KSA', '#006c35'], ['Qatar', 'QAT', '#8a1538'],
+  ] as const).map(([n, tla, c]) => ({ conf: 'AFC' as const, team: [n, n, tla, c] as TeamSeed })),
 ];
 
 const FIRST = [
@@ -345,29 +362,37 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
     });
   }
 
-  // EFL Cup: third round already played (draws go to penalties), fourth round drawn.
-  const eflTeams = [...leagueTeams.get('PL')!, ...leagueTeams.get('ELC')!.slice(0, 12)];
-  const drawOrder = [...eflTeams];
-  for (let i = drawOrder.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [drawOrder[i], drawOrder[j]] = [drawOrder[j], drawOrder[i]];
-  }
-  const third: Match[] = [];
-  for (let i = 0; i < drawOrder.length; i += 2) {
-    const m = makeMatch('EFL', drawOrder[i], drawOrder[i + 1], at(-4 + (i % 4 ? 1 : 0), i % 3 ? 18 : 19, 45), undefined, 'Third round');
+  // Knockout ties: a draw goes to penalties, and the winner goes through.
+  const knockout = (code: string, home: Team, away: Team, kickoff: Date, stage: string): Match => {
+    const m = makeMatch(code, home, away, kickoff, undefined, stage);
     if (m.status === 'FINISHED' && m.homeScore === m.awayScore) {
       const homeWins = rand() < 0.5;
       m.note = `${(homeWins ? m.home : m.away).shortName} win ${homeWins ? '5-4' : '4-3'} on penalties`;
     }
-    third.push(m);
-  }
+    return m;
+  };
   const winnerOf = (m: Match): Team => {
     if (m.homeScore !== m.awayScore) return teams.get(m.homeScore! > m.awayScore! ? m.home.id : m.away.id)!;
     return teams.get(m.note?.startsWith(`${m.home.shortName} win`) ? m.home.id : m.away.id)!;
   };
+  const shuffled = <T,>(list: T[]): T[] => {
+    const out = [...list];
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  };
+
+  // EFL Cup: third round already played, fourth round drawn.
+  const eflTeams = [...leagueTeams.get('PL')!, ...leagueTeams.get('ELC')!.slice(0, 12)];
+  const drawOrder = shuffled(eflTeams);
+  const third: Match[] = [];
+  for (let i = 0; i < drawOrder.length; i += 2)
+    third.push(knockout('EFL', drawOrder[i], drawOrder[i + 1], at(-4 + (i % 4 ? 1 : 0), i % 3 ? 18 : 19, 45), 'Third round'));
   const through = third.map(winnerOf);
   for (let i = 0; i < through.length; i += 2)
-    third.push(makeMatch('EFL', through[i], through[i + 1], at(31 + (i % 4 ? 1 : 0), 19, 45), undefined, 'Fourth round'));
+    third.push(knockout('EFL', through[i], through[i + 1], at(31 + (i % 4 ? 1 : 0), 19, 45), 'Fourth round'));
   matches.push(...third);
 
   // Champions League league phase: 36 clubs, 8 matchdays, two played.
@@ -385,20 +410,92 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
       });
     });
 
-  // Nations League: four groups of four, home and away.
-  const groupNames = [...new Set(NATIONS.map((n) => n.group))];
-  const nlDays = [-24, -21, 12, 15, 47, 50];
+  const byConf = (conf: Confederation) => nations.filter((_, i) => NATIONS[i].conf === conf);
+
+  // Nations League: the first 16 UEFA nations in four groups of four, home and away.
+  // International windows sit within the Scores page's date range so they're easy to find.
+  const nlDays = [-6, -3, 4, 7, 40, 43];
   const nlGroups: StandingGroup[] = [];
-  for (const group of groupNames) {
-    const members = nations.filter((_, i) => NATIONS[i].group === group);
-    const firstLeg = roundRobin(members);
-    const legs = [...firstLeg, ...firstLeg.map((round) => round.map(([a, b]) => [b, a] as [Team, Team]))];
-    const groupMatches = legs.flatMap((round, r) =>
-      round.map(([home, away], i) => makeMatch('UNL', home, away, at(nlDays[r], i ? 18 : 16, 45), r + 1, group)),
-    );
-    matches.push(...groupMatches);
-    nlGroups.push({ name: group, rows: computeStandings(members.map(ref), groupMatches) });
+  byConf('UEFA')
+    .slice(0, 16)
+    .forEach((_, i, uefa) => {
+      if (i % 4) return;
+      const group = `Group A${i / 4 + 1}`;
+      const members = uefa.slice(i, i + 4);
+      const firstLeg = roundRobin(members);
+      const legs = [...firstLeg, ...firstLeg.map((round) => round.map(([a, b]) => [b, a] as [Team, Team]))];
+      const groupMatches = legs.flatMap((round, r) =>
+        round.map(([home, away], k) => makeMatch('UNL', home, away, at(nlDays[r], k ? 18 : 16, 45), r + 1, group)),
+      );
+      matches.push(...groupMatches);
+      nlGroups.push({ name: group, rows: computeStandings(members.map(ref), groupMatches) });
+    });
+
+  /**
+   * A tournament: groups of four (one round robin), then the top two go into
+   * knockout rounds. Each knockout round is only drawn once the previous stage
+   * has finished, so upcoming tournaments show just their group fixtures.
+   */
+  const tournament = (code: string, entrants: Team[], firstDay: number) => {
+    const groups: StandingGroup[] = [];
+    const out: Match[] = [];
+    const qualified: Team[][] = [];
+    const order = shuffled(entrants);
+    for (let g = 0; g * 4 < order.length; g++) {
+      const name = `Group ${String.fromCharCode(65 + g)}`;
+      const members = order.slice(g * 4, g * 4 + 4);
+      const gm = roundRobin(members).flatMap((round, r) =>
+        round.map(([home, away], k) =>
+          makeMatch(code, home, away, at(firstDay + r * 4 + (g % 4 >= 2 ? 1 : 0), [13, 16, 19][(g + k) % 3], 0), r + 1, name),
+        ),
+      );
+      out.push(...gm);
+      const rows = computeStandings(members.map(ref), gm);
+      groups.push({ name, rows });
+      qualified.push(rows.slice(0, 2).map((r) => teams.get(r.team.id)!));
+    }
+    const ROUND: Record<number, string> = { 16: 'Round of 16', 8: 'Quarter-finals', 4: 'Semi-finals', 2: 'Final' };
+    if (out.every((m) => m.status === 'FINISHED')) {
+      // Group winners play runners-up from the neighbouring group.
+      let alive: Team[] = qualified.flatMap((_, g) => (g % 2 ? [] : [qualified[g][0], qualified[g + 1][1], qualified[g + 1][0], qualified[g][1]]));
+      let day = firstDay + 13;
+      while (alive.length >= 2) {
+        const round: Match[] = [];
+        for (let i = 0; i < alive.length; i += 2)
+          round.push(knockout(code, alive[i], alive[i + 1], at(day + (i % 4 ? 1 : 0), i % 4 ? 19 : 16, 0), ROUND[alive.length]));
+        out.push(...round);
+        if (!round.every((m) => m.status === 'FINISHED')) break;
+        alive = round.map(winnerOf);
+        day += 4;
+      }
+    }
+    matches.push(...out);
+    return { matches: out, groups, entrants };
+  };
+
+  // Demo editions: a World Cup just finished; the Euros, Copa América and AFCON are coming up.
+  const uefa = byConf('UEFA');
+  const tournaments = {
+    WC: tournament(
+      'WC',
+      [...uefa.slice(0, 13), ...byConf('CONMEBOL').slice(0, 6), ...byConf('CONCACAF').slice(0, 3), ...byConf('CAF').slice(0, 5), ...byConf('AFC').slice(0, 5)],
+      -80,
+    ),
+    EC: tournament('EC', uefa, 250),
+    CA: tournament('CA', [...byConf('CONMEBOL'), ...byConf('CONCACAF')], 270),
+    AFCON: tournament('AFCON', byConf('CAF'), 95),
+  };
+
+  // Friendlies in the international windows, for nations not playing in the Nations League.
+  const friendlyNations = nations.filter((n) => !nlGroups.some((g) => g.rows.some((r) => r.team.id === n.id)));
+  const friendlies: Match[] = [];
+  for (const day of [-5, -2, 5, 8]) {
+    const pairs = shuffled(friendlyNations).slice(0, 24);
+    const window = `${at(day, 12).toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' })} window`;
+    for (let i = 0; i < pairs.length; i += 2)
+      friendlies.push(makeMatch('FRI', pairs[i], pairs[i + 1], at(day, [17, 19, 23, 1][i % 4], i % 3 ? 0 : 30), undefined, window));
   }
+  matches.push(...friendlies);
 
   // Squads with stats consistent with the matches played in their competition.
   const clubPlayers = new Map<number, Player[]>();
@@ -500,13 +597,33 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
     matches: clMatches,
     standings: [{ name: 'League phase', rows: computeStandings(clTeams.map(ref), clMatches) }],
   });
+  const nlTeams = nations.filter((n) => nlGroups.some((g) => g.rows.some((r) => r.team.id === n.id)));
   data.set('UNL', {
     competition: comp('UNL'),
     season,
-    teams: nations,
-    players: nations.flatMap((n) => nationSquads.get(n.id)!),
+    teams: nlTeams,
+    players: nlTeams.flatMap((n) => nationSquads.get(n.id)!),
     matches: matches.filter((m) => m.competition.code === 'UNL'),
     standings: nlGroups,
+  });
+  for (const [code, t] of Object.entries(tournaments)) {
+    data.set(code, {
+      competition: comp(code),
+      // Not a real edition's year: these results are invented.
+      season: 'Demo edition',
+      teams: t.entrants,
+      players: t.entrants.flatMap((n) => nationSquads.get(n.id)!),
+      matches: t.matches,
+      standings: t.groups,
+    });
+  }
+  data.set('FRI', {
+    competition: comp('FRI'),
+    season,
+    teams: friendlyNations,
+    players: [],
+    matches: friendlies,
+    standings: [],
   });
 
   // Transfer activity, including moves between leagues.

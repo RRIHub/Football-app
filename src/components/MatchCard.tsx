@@ -126,7 +126,7 @@ export function MatchesByCompetition({ matches, empty }: { matches: Match[]; emp
                 {liveCount > 0 && <span className="live-count">{liveCount} live</span>}
                 <span className="muted small">{ms.length}</span>
                 <a className="muted small" href={href.league(code)} onClick={(e) => e.stopPropagation()}>
-                  Table ›
+                  {c?.format === 'knockout' ? 'All matches' : 'Table'} ›
                 </a>
               </span>
             </summary>
