@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 
-function read<T>(key: string, fallback: T): T {
+function read<T>(key: string, fallback: T, validate?: (v: unknown) => v is T): T {
   try {
     const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
+    if (!raw) return fallback;
+    const value: unknown = JSON.parse(raw);
+    return !validate || validate(value) ? (value as T) : fallback;
   } catch {
     return fallback;
   }
 }
 
 /** useState that survives reloads. Storage failures (private mode etc.) are ignored. */
-export function usePersistentState<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(() => read(key, initial));
+export function usePersistentState<T>(key: string, initial: T, validate?: (v: unknown) => v is T) {
+  const [value, setValue] = useState<T>(() => read(key, initial, validate));
   useEffect(() => {
     try {
       localStorage.setItem(key, JSON.stringify(value));
@@ -22,12 +24,19 @@ export function usePersistentState<T>(key: string, initial: T) {
   return [value, setValue] as const;
 }
 
-export function useFollowSet(key: string) {
-  const [ids, setIds] = usePersistentState<number[]>(key, []);
-  const isFollowing = useCallback((id: number) => ids.includes(id), [ids]);
+const isSnapshotList = <T,>(v: unknown): v is T[] =>
+  Array.isArray(v) && v.every((x) => typeof x === 'object' && x !== null && 'id' in x && 'name' in x);
+
+/**
+ * A followed list keeps a small snapshot of each item (name, club, league)
+ * so the feed can render before that item's competition has loaded.
+ */
+export function useFollowList<T extends { id: number }>(key: string) {
+  const [items, setItems] = usePersistentState<T[]>(key, [], isSnapshotList<T>);
+  const isFollowing = useCallback((id: number) => items.some((x) => x.id === id), [items]);
   const toggle = useCallback(
-    (id: number) => setIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id])),
-    [setIds],
+    (item: T) => setItems((cur) => (cur.some((x) => x.id === item.id) ? cur.filter((x) => x.id !== item.id) : [...cur, item])),
+    [setItems],
   );
-  return { ids, isFollowing, toggle };
+  return { items, ids: items.map((x) => x.id), isFollowing, toggle };
 }

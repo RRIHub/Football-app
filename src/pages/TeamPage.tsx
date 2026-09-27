@@ -1,11 +1,13 @@
 import { FollowButton } from '../components/FollowButton';
+import { LeagueTag } from '../components/LeagueTag';
 import { MatchList } from '../components/MatchCard';
+import { ordinal, Stat } from '../components/Stat';
+import { ErrorBox, Loading } from '../components/Status';
 import { TeamBadge } from '../components/TeamBadge';
-import { TransferList } from '../components/TransferList';
+import { NO_TRANSFER_FEED, TransferList } from '../components/TransferList';
 import type { Position } from '../data/types';
-import { useApp } from '../state/AppContext';
+import { followPlayer, followTeam, useApp, useCompetition, useTeam, useTransfers } from '../state/AppContext';
 import { href } from '../state/router';
-import { ordinal, Stat } from './HomePage';
 
 const GROUPS: [Position, string][] = [
   ['GK', 'Goalkeepers'],
@@ -15,48 +17,61 @@ const GROUPS: [Position, string][] = [
 ];
 
 export function TeamPage({ id }: { id: number }) {
-  const { data, team, followedTeams, followedPlayers } = useApp();
-  const t = team(id);
-  if (!t)
-    return (
-      <section className="panel">
-        <p>Team not found.</p>
-        <a href={href.teams}>Back to teams</a>
-      </section>
-    );
-  const row = data.standings.find((s) => s.teamId === id);
-  const games = data.matches
-    .filter((m) => m.homeTeamId === id || m.awayTeamId === id)
-    .sort((a, b) => a.utcDate.localeCompare(b.utcDate));
-  const results = games.filter((m) => m.status === 'FINISHED').slice(-5).reverse();
-  const fixtures = games.filter((m) => m.status === 'SCHEDULED' || m.status === 'LIVE').slice(0, 5);
-  const form = results
-    .map((m) => {
-      const us = m.homeTeamId === id ? m.homeScore! : m.awayScore!;
-      const them = m.homeTeamId === id ? m.awayScore! : m.homeScore!;
-      return us > them ? 'W' : us === them ? 'D' : 'L';
-    })
-    .reverse();
-  const squad = data.players.filter((p) => p.teamId === id);
-  const transfers = data.transfers.filter((tr) => tr.fromTeamId === id || tr.toTeamId === id);
+  const { followedTeams, followedPlayers } = useApp();
+  const res = useTeam(id);
+  const transfers = useTransfers();
+  const league = res.data?.team.league;
+  const leagueData = useCompetition(league?.code);
+
+  if (res.error && !res.data) return <ErrorBox message={res.error} onRetry={res.reload} />;
+  if (!res.data || res.data.team.id !== id) return <Loading what="team" />;
+
+  const { team, competitions, squad } = res.data;
+  const row = leagueData.data?.standings.flatMap((g) => g.rows).find((r) => r.team.id === id);
+  const games = [...res.data.matches].sort((a, b) => a.utcDate.localeCompare(b.utcDate));
+  const finished = games.filter((m) => m.status === 'FINISHED');
+  const results = finished.slice(-6).reverse();
+  const fixtures = games.filter((m) => m.status === 'SCHEDULED' || m.status === 'LIVE').slice(0, 6);
+  const form = finished.slice(-5).map((m) => {
+    const us = m.home.id === id ? m.homeScore! : m.awayScore!;
+    const them = m.home.id === id ? m.awayScore! : m.homeScore!;
+    return { result: us > them ? 'W' : us === them ? 'D' : 'L', comp: m.competition.name };
+  });
+  const teamTransfers = (transfers.data ?? []).filter((t) => t.from.id === id || t.to.id === id);
 
   return (
     <>
-      <section className="panel profile" style={{ ['--club' as string]: t.color }}>
+      <section className="panel profile" style={{ ['--club' as string]: team.color }}>
         <div className="row gap">
-          <TeamBadge team={t} size={64} />
+          <TeamBadge team={team} size={64} />
           <div className="grow">
-            <h1>{t.name}</h1>
-            {row && (
-              <div className="muted">
-                {ordinal(row.position)} in {data.competition}
-              </div>
-            )}
+            <h1>{team.name}</h1>
+            <div className="muted">
+              {team.national ? 'National team' : team.area}
+              {league && (
+                <>
+                  {' · '}
+                  <LeagueTag competition={league} />
+                </>
+              )}
+            </div>
           </div>
-          <FollowButton following={followedTeams.isFollowing(id)} onToggle={() => followedTeams.toggle(id)} />
+          <FollowButton
+            following={followedTeams.isFollowing(id)}
+            onToggle={() => followedTeams.toggle(followTeam(team))}
+          />
         </div>
-        {row && (
+        {competitions.length > 0 && (
+          <div className="comp-chips">
+            <span className="muted small">Competing in</span>
+            {competitions.map((c) => (
+              <LeagueTag key={c.code} competition={c} />
+            ))}
+          </div>
+        )}
+        {row && league && (
           <div className="stat-row">
+            <Stat label={league.name} value={ordinal(row.position)} />
             <Stat label="Played" value={row.played} />
             <Stat label="Won" value={row.won} />
             <Stat label="Drawn" value={row.drawn} />
@@ -68,8 +83,8 @@ export function TeamPage({ id }: { id: number }) {
           <div className="form">
             <span className="muted small">Form</span>
             {form.map((f, i) => (
-              <span key={i} className={`form-pill ${f}`}>
-                {f}
+              <span key={i} className={`form-pill ${f.result}`} title={f.comp}>
+                {f.result}
               </span>
             ))}
           </div>
@@ -79,11 +94,11 @@ export function TeamPage({ id }: { id: number }) {
       <div className="two-col">
         <section className="panel">
           <h2>Recent results</h2>
-          <MatchList matches={results} empty="No results yet." />
+          <MatchList matches={results} empty="No results yet." showCompetition />
         </section>
         <section className="panel">
           <h2>Upcoming fixtures</h2>
-          <MatchList matches={fixtures} empty="No upcoming fixtures." />
+          <MatchList matches={fixtures} empty="No upcoming fixtures." showCompetition />
         </section>
       </div>
 
@@ -99,14 +114,17 @@ export function TeamPage({ id }: { id: number }) {
               <ul className="squad-list">
                 {group.map((p) => (
                   <li key={p.id}>
-                    <a href={href.player(p.id)}>{p.name}</a>
+                    <a href={href.player(p.competition.code, p.id)}>
+                      {p.name}
+                      {team.national && <span className="muted small"> · {p.team.shortName}</span>}
+                    </a>
                     <span className="muted small">
                       {p.stats.goals}G · {p.stats.assists}A
                     </span>
                     <FollowButton
                       compact
                       following={followedPlayers.isFollowing(p.id)}
-                      onToggle={() => followedPlayers.toggle(p.id)}
+                      onToggle={() => followedPlayers.toggle(followPlayer(p))}
                     />
                   </li>
                 ))}
@@ -116,17 +134,15 @@ export function TeamPage({ id }: { id: number }) {
         })}
       </section>
 
-      <section className="panel">
-        <h2>Transfers</h2>
-        <TransferList
-          transfers={transfers}
-          empty={
-            data.transfersUnavailable
-              ? 'Transfer news is not available from the current data provider.'
-              : 'No recent transfer activity.'
-          }
-        />
-      </section>
+      {!team.national && (
+        <section className="panel">
+          <h2>Transfers</h2>
+          <TransferList
+            transfers={teamTransfers}
+            empty={transfers.data === null ? NO_TRANSFER_FEED : 'No recent transfer activity.'}
+          />
+        </section>
+      )}
     </>
   );
 }

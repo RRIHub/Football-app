@@ -1,22 +1,38 @@
+import { useState } from 'react';
+import { CompetitionSelect } from '../components/CompetitionSelect';
 import { FollowButton } from '../components/FollowButton';
-import { MatchCard, MatchList } from '../components/MatchCard';
+import { LeagueTag } from '../components/LeagueTag';
+import { MatchCard, MatchesByCompetition } from '../components/MatchCard';
+import { Stat } from '../components/Stat';
+import { ErrorBox, Loading } from '../components/Status';
 import { TeamBadge } from '../components/TeamBadge';
-import { TransferList } from '../components/TransferList';
-import { useApp } from '../state/AppContext';
+import { NO_TRANSFER_FEED, TransferList } from '../components/TransferList';
+import {
+  followTeam,
+  useApp,
+  useCompetition,
+  useMatchWindow,
+  useTeam,
+  useTransfers,
+  type FollowedPlayer,
+  type FollowedTeam,
+} from '../state/AppContext';
 import { href } from '../state/router';
 
 export function HomePage() {
-  const { data, team, player, followedTeams, followedPlayers } = useApp();
-  const live = data.matches.filter((m) => m.status === 'LIVE');
-  const myTeams = followedTeams.ids.map(team).filter((t) => t !== undefined);
-  const myPlayers = followedPlayers.ids.map(player).filter((p) => p !== undefined);
-  const nothingFollowed = !myTeams.length && !myPlayers.length;
+  const { followedTeams, followedPlayers } = useApp();
+  const matchWindow = useMatchWindow();
+  const transfers = useTransfers();
+  const live = (matchWindow.data ?? []).filter((m) => m.status === 'LIVE');
+  const nothingFollowed = !followedTeams.items.length && !followedPlayers.items.length;
+  const today = new Date().toDateString();
+  const todays = (matchWindow.data ?? []).filter((m) => new Date(m.utcDate).toDateString() === today);
 
-  const myTransfers = data.transfers.filter(
+  const myTransfers = (transfers.data ?? []).filter(
     (t) =>
       (t.playerId !== undefined && followedPlayers.isFollowing(t.playerId)) ||
-      (t.fromTeamId !== undefined && followedTeams.isFollowing(t.fromTeamId)) ||
-      (t.toTeamId !== undefined && followedTeams.isFollowing(t.toTeamId)),
+      followedTeams.isFollowing(t.from.id) ||
+      followedTeams.isFollowing(t.to.id),
   );
 
   return (
@@ -28,101 +44,31 @@ export function HomePage() {
           </h2>
           <div className="match-grid">
             {live.map((m) => (
-              <MatchCard key={m.id} match={m} />
+              <MatchCard key={m.id} match={m} showCompetition />
             ))}
           </div>
         </section>
       )}
 
-      {nothingFollowed && (
-        <section className="panel hero">
-          <h2>Make FootIQ yours</h2>
-          <p className="muted">
-            Follow your teams and favourite players to get their results, fixtures, stats and transfer news in one
-            place. Tap a club to follow it:
-          </p>
-          <div className="chip-grid">
-            {data.teams.map((t) => (
-              <button key={t.id} className="chip" onClick={() => followedTeams.toggle(t.id)}>
-                <TeamBadge team={t} size={20} /> {t.shortName}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      {nothingFollowed && <FollowPrompt />}
 
-      {myTeams.length > 0 && (
+      {followedTeams.items.length > 0 && (
         <section className="panel">
           <h2>Your teams</h2>
           <div className="card-grid">
-            {myTeams.map((t) => {
-              const games = data.matches
-                .filter((m) => m.homeTeamId === t.id || m.awayTeamId === t.id)
-                .sort((a, b) => a.utcDate.localeCompare(b.utcDate));
-              const last = games.filter((m) => m.status === 'FINISHED').at(-1);
-              const next = games.find((m) => m.status === 'SCHEDULED' || m.status === 'LIVE');
-              const row = data.standings.find((s) => s.teamId === t.id);
-              return (
-                <article key={t.id} className="card">
-                  <header className="card-head">
-                    <a href={href.team(t.id)} className="row gap">
-                      <TeamBadge team={t} size={32} />
-                      <div>
-                        <div className="strong">{t.name}</div>
-                        {row && (
-                          <div className="muted small">
-                            {ordinal(row.position)} · {row.points} pts
-                          </div>
-                        )}
-                      </div>
-                    </a>
-                    <FollowButton compact following onToggle={() => followedTeams.toggle(t.id)} />
-                  </header>
-                  {last && (
-                    <>
-                      <div className="label">Last result</div>
-                      <MatchCard match={last} />
-                    </>
-                  )}
-                  {next && (
-                    <>
-                      <div className="label">{next.status === 'LIVE' ? 'Playing now' : 'Next up'}</div>
-                      {next.status !== 'LIVE' && <div className="muted small">{new Date(next.utcDate).toLocaleDateString()}</div>}
-                      <MatchCard match={next} />
-                    </>
-                  )}
-                </article>
-              );
-            })}
+            {followedTeams.items.map((t) => (
+              <FollowedTeamCard key={t.id} team={t} />
+            ))}
           </div>
         </section>
       )}
 
-      {myPlayers.length > 0 && (
+      {followedPlayers.items.length > 0 && (
         <section className="panel">
           <h2>Your players</h2>
           <div className="card-grid">
-            {myPlayers.map((p) => (
-              <a key={p.id} href={href.player(p.id)} className="card player-card">
-                <header className="card-head">
-                  <div className="row gap">
-                    <TeamBadge team={team(p.teamId)} size={28} />
-                    <div>
-                      <div className="strong">{p.name}</div>
-                      <div className="muted small">
-                        {p.position} · {team(p.teamId)?.shortName}
-                      </div>
-                    </div>
-                  </div>
-                  <FollowButton compact following onToggle={() => followedPlayers.toggle(p.id)} />
-                </header>
-                <div className="stat-row">
-                  <Stat label="Apps" value={p.stats.appearances} />
-                  <Stat label="Goals" value={p.stats.goals} />
-                  <Stat label="Assists" value={p.stats.assists} />
-                  <Stat label="Price" value={`£${p.price}m`} />
-                </div>
-              </a>
+            {followedPlayers.items.map((p) => (
+              <FollowedPlayerCard key={p.id} player={p} />
             ))}
           </div>
         </section>
@@ -131,43 +77,147 @@ export function HomePage() {
       {!nothingFollowed && (
         <section className="panel">
           <h2>Transfer news for you</h2>
-          <TransferList
-            transfers={myTransfers.slice(0, 8)}
-            empty={
-              data.transfersUnavailable
-                ? 'Transfer news is not available from the current data provider.'
-                : 'No recent transfer activity involving the teams and players you follow.'
-            }
-          />
+          {transfers.loading && !transfers.data ? (
+            <Loading what="transfers" />
+          ) : (
+            <TransferList
+              transfers={myTransfers.slice(0, 8)}
+              empty={
+                transfers.data === null
+                  ? NO_TRANSFER_FEED
+                  : 'No recent transfer activity involving the teams and players you follow.'
+              }
+            />
+          )}
         </section>
       )}
 
-      {nothingFollowed && (
-        <section className="panel">
-          <h2>Latest results</h2>
-          <MatchList
-            matches={data.matches
-              .filter((m) => m.status === 'FINISHED')
-              .sort((a, b) => b.utcDate.localeCompare(a.utcDate))
-              .slice(0, 10)}
-          />
-        </section>
-      )}
+      <section className="panel">
+        <h2>Today's matches</h2>
+        {matchWindow.error && !matchWindow.data ? (
+          <ErrorBox message={matchWindow.error} onRetry={matchWindow.reload} />
+        ) : !matchWindow.data ? (
+          <Loading what="matches" />
+        ) : (
+          <MatchesByCompetition matches={todays} empty="No matches today in the competitions we cover." />
+        )}
+      </section>
     </>
   );
 }
 
-export function Stat({ label, value }: { label: string; value: string | number }) {
+function FollowPrompt() {
+  const { competitions, followedTeams } = useApp();
+  const [code, setCode] = useState(competitions[0]?.code ?? '');
+  const comp = useCompetition(code);
   return (
-    <div className="stat">
-      <div className="stat-value">{value}</div>
-      <div className="stat-label">{label}</div>
-    </div>
+    <section className="panel hero">
+      <h2>Make FootIQ yours</h2>
+      <p className="muted">
+        Follow clubs and national teams to get their results, fixtures, stats and transfer news in one place. Pick a
+        competition, then tap the teams you support:
+      </p>
+      <div className="filters">
+        <CompetitionSelect value={code} onChange={setCode} />
+      </div>
+      {comp.error && !comp.data ? (
+        <ErrorBox message={comp.error} onRetry={comp.reload} />
+      ) : !comp.data || comp.data.competition.code !== code ? (
+        <Loading what="teams" />
+      ) : (
+        <div className="chip-grid">
+          {comp.data.teams.map((t) => (
+            <button
+              key={t.id}
+              className={`chip ${followedTeams.isFollowing(t.id) ? 'on' : ''}`}
+              onClick={() => followedTeams.toggle(followTeam(t))}
+            >
+              <TeamBadge team={t} size={20} /> {t.shortName}
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
-export function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+function FollowedTeamCard({ team }: { team: FollowedTeam }) {
+  const { followedTeams } = useApp();
+  const res = useTeam(team.id);
+  const games = [...(res.data?.matches ?? [])].sort((a, b) => a.utcDate.localeCompare(b.utcDate));
+  const last = games.filter((m) => m.status === 'FINISHED').at(-1);
+  const next = games.find((m) => m.status === 'SCHEDULED' || m.status === 'LIVE');
+  const league = res.data?.team.league ?? team.league;
+
+  return (
+    <article className="card">
+      <header className="card-head">
+        <div className="row gap">
+          <a href={href.team(team.id)}>
+            <TeamBadge team={res.data?.team ?? team} size={32} />
+          </a>
+          <div>
+            <a href={href.team(team.id)} className="strong block">
+              {team.name}
+            </a>
+            <div className="small">
+              {league ? <LeagueTag competition={league} /> : <span className="muted">{team.national ? 'National team' : ''}</span>}
+            </div>
+          </div>
+        </div>
+        <FollowButton compact following onToggle={() => followedTeams.toggle(team)} />
+      </header>
+      {res.error && !res.data && <p className="muted small">Couldn't load fixtures.</p>}
+      {!res.data && !res.error && <Loading what="fixtures" />}
+      {last && (
+        <>
+          <div className="label">Last result</div>
+          <MatchCard match={last} showCompetition />
+        </>
+      )}
+      {next && (
+        <>
+          <div className="label">
+            {next.status === 'LIVE' ? 'Playing now' : `Next up · ${new Date(next.utcDate).toLocaleDateString()}`}
+          </div>
+          <MatchCard match={next} showCompetition />
+        </>
+      )}
+    </article>
+  );
+}
+
+function FollowedPlayerCard({ player }: { player: FollowedPlayer }) {
+  const { followedPlayers } = useApp();
+  const comp = useCompetition(player.competition.code);
+  const fresh = comp.data?.players.find((p) => p.id === player.id);
+  return (
+    <a href={href.player(player.competition.code, player.id)} className="card player-card">
+      <header className="card-head">
+        <div className="row gap">
+          <TeamBadge team={fresh?.team ?? player.team} size={28} />
+          <div>
+            <div className="strong">{player.name}</div>
+            <div className="muted small">
+              {player.position} · {player.team.shortName}
+            </div>
+            <div className="small">
+              <LeagueTag competition={player.competition} plain />
+            </div>
+          </div>
+        </div>
+        <FollowButton compact following onToggle={() => followedPlayers.toggle(player)} />
+      </header>
+      {fresh ? (
+        <div className="stat-row">
+          <Stat label="Apps" value={fresh.stats.appearances} />
+          <Stat label="Goals" value={fresh.stats.goals} />
+          <Stat label="Assists" value={fresh.stats.assists} />
+          <Stat label="Price" value={`£${fresh.price}m`} />
+        </div>
+      ) : (
+        comp.loading && <Loading what="stats" />
+      )}
+    </a>
+  );
 }

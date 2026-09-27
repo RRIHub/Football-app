@@ -10,6 +10,8 @@ export default defineConfig(({ mode }) => {
     define: {
       // Only a boolean reaches the client; the key itself stays in the proxy.
       __LIVE_DATA__: JSON.stringify(Boolean(apiKey)),
+      // Optional comma-separated competition codes, e.g. "PL,PD,CL,WC".
+      __COMPETITIONS__: JSON.stringify(env.FOOTBALL_DATA_COMPETITIONS ?? ''),
     },
     server: {
       proxy: apiKey

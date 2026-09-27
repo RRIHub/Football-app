@@ -1,126 +1,98 @@
-import { useState } from 'react';
-import { MatchList } from '../components/MatchCard';
-import { TeamBadge } from '../components/TeamBadge';
-import type { Match } from '../data/types';
-import { useApp } from '../state/AppContext';
-import { href } from '../state/router';
+import { useEffect, useMemo, useState } from 'react';
+import { CompetitionSelect } from '../components/CompetitionSelect';
+import { MatchesByCompetition } from '../components/MatchCard';
+import { ErrorBox, Loading } from '../components/Status';
+import { useApp, useMatchWindow } from '../state/AppContext';
+import { usePersistentState } from '../state/storage';
 
-type Filter = 'all' | 'live' | 'results' | 'fixtures' | 'mine';
+const DAYS_BACK = 3;
+const DAYS_AHEAD = 6;
+
+function dayLabel(offset: number, date: Date): string {
+  if (offset === 0) return 'Today';
+  if (offset === -1) return 'Yesterday';
+  if (offset === 1) return 'Tomorrow';
+  return date.toLocaleDateString([], { weekday: 'short', day: 'numeric' });
+}
 
 export function ScoresPage() {
-  const { data, followedTeams } = useApp();
-  const hasLive = data.matches.some((m) => m.status === 'LIVE');
-  const [filter, setFilter] = useState<Filter>(hasLive ? 'live' : 'results');
-  const [tab, setTab] = useState<'matches' | 'table'>('matches');
+  const { followedTeams } = useApp();
+  const res = useMatchWindow(DAYS_BACK, DAYS_AHEAD);
+  const [offset, setOffset] = useState(0);
+  const [liveOnly, setLiveOnly] = useState(false);
+  const [mine, setMine] = useState(false);
+  const [code, setCode] = usePersistentState('footiq.scoresCompetition', 'ALL');
 
-  const now = Date.now();
-  const byDate = (dir: 1 | -1) => (a: Match, b: Match) => dir * a.utcDate.localeCompare(b.utcDate);
-  const matches = (() => {
-    switch (filter) {
-      case 'live':
-        return data.matches.filter((m) => m.status === 'LIVE');
-      case 'results':
-        return data.matches.filter((m) => m.status === 'FINISHED').sort(byDate(-1)).slice(0, 30);
-      case 'fixtures':
-        return data.matches
-          .filter((m) => m.status === 'SCHEDULED' || (m.status === 'POSTPONED' && Date.parse(m.utcDate) > now))
-          .sort(byDate(1))
-          .slice(0, 30);
-      case 'mine':
-        return data.matches
-          .filter((m) => followedTeams.isFollowing(m.homeTeamId) || followedTeams.isFollowing(m.awayTeamId))
-          .sort(byDate(1));
-      default:
-        return [...data.matches].sort(byDate(1));
-    }
-  })();
+  const hasLive = res.data?.some((m) => m.status === 'LIVE') ?? false;
+  // Refresh every minute while games are in play.
+  useEffect(() => {
+    if (!hasLive) return;
+    const t = setInterval(res.reload, 60_000);
+    return () => clearInterval(t);
+  }, [hasLive, res.reload]);
+
+  const days = useMemo(
+    () =>
+      Array.from({ length: DAYS_BACK + DAYS_AHEAD + 1 }, (_, i) => {
+        const o = i - DAYS_BACK;
+        const d = new Date();
+        d.setDate(d.getDate() + o);
+        return { offset: o, date: d };
+      }),
+    [],
+  );
+  const selectedDay = days.find((d) => d.offset === offset)!.date.toDateString();
+
+  const matches = (res.data ?? [])
+    .filter((m) => (liveOnly ? m.status === 'LIVE' : new Date(m.utcDate).toDateString() === selectedDay))
+    .filter((m) => code === 'ALL' || m.competition.code === code)
+    .filter((m) => !mine || followedTeams.isFollowing(m.home.id) || followedTeams.isFollowing(m.away.id))
+    .sort((a, b) => a.utcDate.localeCompare(b.utcDate));
 
   return (
     <section className="panel">
-      <div className="tabs">
-        <button className={tab === 'matches' ? 'active' : ''} onClick={() => setTab('matches')}>
-          Scores &amp; fixtures
-        </button>
-        <button className={tab === 'table' ? 'active' : ''} onClick={() => setTab('table')}>
-          Table
-        </button>
+      <h2>Scores &amp; fixtures</h2>
+      <div className="day-strip" role="tablist">
+        {days.map((d) => (
+          <button
+            key={d.offset}
+            role="tab"
+            aria-selected={!liveOnly && offset === d.offset}
+            className={`day-pill ${!liveOnly && offset === d.offset ? 'active' : ''}`}
+            onClick={() => {
+              setOffset(d.offset);
+              setLiveOnly(false);
+            }}
+          >
+            {dayLabel(d.offset, d.date)}
+          </button>
+        ))}
       </div>
-
-      {tab === 'matches' ? (
-        <>
-          <div className="filters">
-            {(
-              [
-                ['live', 'Live'],
-                ['results', 'Results'],
-                ['fixtures', 'Fixtures'],
-                ['mine', 'My teams'],
-                ['all', 'All'],
-              ] as const
-            ).map(([key, label]) => (
-              <button key={key} className={`pill ${filter === key ? 'active' : ''}`} onClick={() => setFilter(key)}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <MatchList
-            matches={matches}
-            empty={
-              filter === 'live'
-                ? 'No matches in play right now.'
-                : filter === 'mine'
-                  ? 'Follow some teams to see their matches here.'
-                  : 'No matches.'
-            }
-          />
-        </>
+      <div className="filters">
+        <button className={`pill live-pill ${liveOnly ? 'active' : ''}`} onClick={() => setLiveOnly((v) => !v)}>
+          {hasLive && <span className="pulse small-pulse" />} Live
+        </button>
+        <button className={`pill ${mine ? 'active' : ''}`} onClick={() => setMine((v) => !v)}>
+          My teams
+        </button>
+        <CompetitionSelect value={code} onChange={setCode} allLabel="All competitions" />
+      </div>
+      {res.error && !res.data ? (
+        <ErrorBox message={res.error} onRetry={res.reload} />
+      ) : !res.data ? (
+        <Loading what="matches" />
       ) : (
-        <LeagueTable />
+        <MatchesByCompetition
+          matches={matches}
+          empty={
+            liveOnly
+              ? 'No matches in play right now.'
+              : mine
+                ? 'None of your teams play on this day.'
+                : 'No matches on this day.'
+          }
+        />
       )}
     </section>
-  );
-}
-
-export function LeagueTable({ highlight }: { highlight?: number }) {
-  const { data, team, followedTeams } = useApp();
-  return (
-    <div className="table-wrap">
-      <table className="table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th className="left">Team</th>
-            <th>P</th>
-            <th className="hide-sm">W</th>
-            <th className="hide-sm">D</th>
-            <th className="hide-sm">L</th>
-            <th>GD</th>
-            <th>Pts</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.standings.map((r) => {
-            const t = team(r.teamId);
-            const mine = r.teamId === highlight || followedTeams.isFollowing(r.teamId);
-            return (
-              <tr key={r.teamId} className={mine ? 'highlight' : undefined}>
-                <td>{r.position}</td>
-                <td className="left">
-                  <a href={href.team(r.teamId)} className="row gap-sm">
-                    <TeamBadge team={t} size={20} /> {t?.shortName}
-                  </a>
-                </td>
-                <td>{r.played}</td>
-                <td className="hide-sm">{r.won}</td>
-                <td className="hide-sm">{r.drawn}</td>
-                <td className="hide-sm">{r.lost}</td>
-                <td>{r.goalsFor - r.goalsAgainst > 0 ? '+' : ''}{r.goalsFor - r.goalsAgainst}</td>
-                <td className="strong">{r.points}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
   );
 }
