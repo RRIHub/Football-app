@@ -56,7 +56,9 @@ export function App() {
   const route = useRoute();
   const { source } = useApp();
   const { user, signOut, finishOnboarding } = useAuth();
-  const dataError = useSyncExternalStore(dataHealth.subscribe, dataHealth.get);
+  const problems = useSyncExternalStore(dataHealth.subscribe, dataHealth.get);
+  const dataError = problems.filter((p) => p.kind === 'data').map((p) => p.message).join(' ');
+  const accountError = problems.filter((p) => p.kind === 'account').map((p) => p.message).join(' ');
   const attribution = dataAttribution();
 
   // New accounts pick their favourite clubs and players first.
@@ -106,6 +108,11 @@ export function App() {
       {dataError && (
         <div className="error-banner" role="alert">
           <strong>Live data isn't loading.</strong> {dataError}
+        </div>
+      )}
+      {accountError && (
+        <div className="error-banner" role="alert">
+          <strong>Your changes aren't being saved.</strong> {accountError}
         </div>
       )}
       <main className="container">

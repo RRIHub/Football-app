@@ -2,3 +2,4 @@ node_modules
 dist
 .env
 .env.local
+.footiq-dev-db.json

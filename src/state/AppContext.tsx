@@ -57,9 +57,9 @@ interface AppState {
 const Ctx = createContext<AppState | null>(null);
 
 export function AppProvider({ userId, children }: { userId: string; children: ReactNode }) {
-  // Favourites belong to the signed-in account.
-  const followedTeams = useFollowList<FollowedTeam>(`footiq.${userId}.teams`);
-  const followedPlayers = useFollowList<FollowedPlayer>(`footiq.${userId}.players`);
+  // Favourites belong to the signed-in account and are saved with it.
+  const followedTeams = useFollowList<FollowedTeam>('teams');
+  const followedPlayers = useFollowList<FollowedPlayer>('players');
   const comps = useResource<Competition[]>('competitions', () => provider.listCompetitions());
 
   const value = useMemo<AppState | null>(() => {

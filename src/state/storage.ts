@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAccountField } from '../auth/accountData';
 
 function read<T>(key: string, fallback: T, validate?: (v: unknown) => v is T): T {
   try {
@@ -27,12 +28,15 @@ export function usePersistentState<T>(key: string, initial: T, validate?: (v: un
 const isSnapshotList = <T,>(v: unknown): v is T[] =>
   Array.isArray(v) && v.every((x) => typeof x === 'object' && x !== null && 'id' in x && 'name' in x);
 
+const NO_ITEMS: never[] = [];
+
 /**
- * A followed list keeps a small snapshot of each item (name, club, league)
- * so the feed can render before that item's competition has loaded.
+ * A followed list, saved with the signed-in account. It keeps a small
+ * snapshot of each item (name, club, league) so the feed can render before
+ * that item's competition has loaded.
  */
-export function useFollowList<T extends { id: number }>(key: string) {
-  const [items, setItems] = usePersistentState<T[]>(key, [], isSnapshotList<T>);
+export function useFollowList<T extends { id: number }>(field: 'teams' | 'players') {
+  const [items, setItems] = useAccountField<T[]>(field, NO_ITEMS, isSnapshotList<T>);
   const isFollowing = useCallback((id: number) => items.some((x) => x.id === id), [items]);
   const toggle = useCallback(
     (item: T) => setItems((cur) => (cur.some((x) => x.id === item.id) ? cur.filter((x) => x.id !== item.id) : [...cur, item])),

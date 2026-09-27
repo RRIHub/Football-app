@@ -1,6 +1,6 @@
-// Device-local accounts. Profiles and their favourites live in this browser
-// only; swap this module for a hosted auth service (e.g. Supabase, Firebase
-// Auth, Auth0) to sync accounts across devices.
+// Device-only accounts, used when the server has no account storage set up.
+// Profiles live in this browser only. With storage configured, accounts are
+// kept on the server instead (see backend.ts and server/accounts.ts).
 
 export interface Account {
   id: string;
@@ -101,5 +101,11 @@ export function markOnboarded(id: string): PublicAccount | null {
   const accounts = load().map((a) => (a.id === id ? { ...a, onboarded: true } : a));
   save(accounts);
   const account = accounts.find((a) => a.id === id);
+  return account ? strip(account) : null;
+}
+
+/** A device-only account by email, if one exists in this browser. */
+export function findAccount(email: string): PublicAccount | null {
+  const account = load().find((a) => a.email === normaliseEmail(email));
   return account ? strip(account) : null;
 }

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/AuthContext';
 
 export function LoginPage() {
-  const { signIn, signUp } = useAuth();
+  const { backend, signIn, signUp } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -85,7 +85,16 @@ export function LoginPage() {
             {busy ? 'Please wait…' : mode === 'signup' ? 'Create account' : 'Sign in'}
           </button>
         </form>
-        <p className="muted small login-note">Your account and favourites are saved on this device.</p>
+        {backend.kind === 'server' ? (
+          <p className="muted small login-note">
+            Sign in on any device with your account. You'll stay signed in on this device until you sign out.
+          </p>
+        ) : (
+          <p className="login-warning small" role="note">
+            Account storage isn't set up on the server, so accounts only work in this browser. See the README to set
+            it up.
+          </p>
+        )}
       </div>
     </div>
   );
