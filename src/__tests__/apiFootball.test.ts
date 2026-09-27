@@ -119,7 +119,10 @@ describe('API-Football provider', () => {
     vi.stubGlobal('fetch', fetch);
     // Both clubs report the same moves; each should appear once.
     const list = (await apiFootballProvider.loadTransfers([42, 49]))!;
-    expect(fetch.mock.calls.map((c) => c[0])).toEqual(['/af-api/transfers?team=42', '/af-api/transfers?team=49']);
+    expect(fetch.mock.calls.map((c) => c[0])).toEqual([
+      `/api/api-football?path=${encodeURIComponent('/transfers?team=42')}`,
+      `/api/api-football?path=${encodeURIComponent('/transfers?team=49')}`,
+    ]);
     expect(list.map((t) => [t.type, t.fee, t.to.name])).toEqual([
       ['permanent', '€30m', 'Arsenal'],
       ['loan', 'Loan', 'Chelsea'],

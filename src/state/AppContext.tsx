@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
-import { LIVE_REFRESH_MS } from '../data/http';
+import { liveRefreshMs } from '../data/http';
 import {
   news,
   provider,
@@ -106,7 +106,8 @@ export function useApp(): AppState {
 /* ---------- data hooks ---------- */
 
 const MIN = 60_000;
-const isLive = provider.id !== 'demo';
+// Functions, not constants: the data source is only known once the server config has loaded.
+const isLive = () => provider.id !== 'demo';
 
 export function useCompetition(code: string | null | undefined) {
   return useResource<CompetitionData>(code ? `comp:${code}` : null, () => provider.loadCompetition(code!), 5 * MIN);
@@ -125,7 +126,7 @@ export function usePlayer(code: string, id: number) {
   );
 }
 
-export const canLoadPlayer = Boolean(provider.loadPlayer);
+export const canLoadPlayer = () => Boolean(provider.loadPlayer);
 
 /** All matches on one local calendar day (0 = today), across every competition. */
 export function useMatchesOnDay(dayOffset = 0) {
@@ -140,14 +141,14 @@ export function useMatchesOnDay(dayOffset = 0) {
       end.setHours(23, 59, 59, 999);
       return provider.loadMatches(start, end);
     },
-    isLive && dayOffset === 0 ? LIVE_REFRESH_MS : Infinity,
+    isLive() && dayOffset === 0 ? liveRefreshMs() : Infinity,
   );
   // Keep scores fresh while any match is in play.
   const hasLive = res.data?.some((m) => m.status === 'LIVE') ?? false;
   const { reload } = res;
   useEffect(() => {
-    if (!hasLive || !isLive) return;
-    const t = setInterval(reload, LIVE_REFRESH_MS);
+    if (!hasLive || !isLive()) return;
+    const t = setInterval(reload, liveRefreshMs());
     return () => clearInterval(t);
   }, [hasLive, reload]);
   return res;
@@ -174,5 +175,5 @@ export function useNews(teams?: { id: number; name: string; shortName?: string }
   return useResource<NewsItem[]>(teams && !teams.length ? null : key, () => news.load(query, topic), 10 * MIN);
 }
 
-export const newsAttribution = news.attribution;
-export const dataAttribution = provider.attribution;
+export const newsAttribution = () => news.attribution;
+export const dataAttribution = () => provider.attribution;

@@ -34,8 +34,10 @@ describe('guardian news', () => {
     }));
     vi.stubGlobal('fetch', fetch);
     const items = await guardianNews.load([{ id: 1, name: 'Arsenal' }]);
-    const url = new URL(fetch.mock.calls[0][0], 'http://x');
-    expect(url.pathname).toBe('/news-api/search');
+    const outer = new URL(fetch.mock.calls[0][0], 'http://x');
+    expect(outer.pathname).toBe('/api/news');
+    const url = new URL(outer.searchParams.get('path')!, 'http://x');
+    expect(url.pathname).toBe('/search');
     expect(url.searchParams.get('section')).toBe('football');
     expect(url.searchParams.get('q')).toBe('("Arsenal")');
     expect(url.searchParams.has('api-key')).toBe(false);
@@ -46,7 +48,8 @@ describe('guardian news', () => {
     const fetch = vi.fn(async (_url: string) => ({ ok: true, status: 200, json: async () => ({ response: { results: [] } }) }));
     vi.stubGlobal('fetch', fetch);
     await guardianNews.load([{ id: 1, name: 'Arsenal' }], 'transfers');
-    const q = new URL(fetch.mock.calls[0][0], 'http://x').searchParams.get('q');
+    const path = new URL(fetch.mock.calls[0][0], 'http://x').searchParams.get('path')!;
+    const q = new URL(path, 'http://x').searchParams.get('q');
     expect(q).toBe('("Arsenal") AND (transfer OR signing OR loan)');
   });
 });

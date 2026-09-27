@@ -1,8 +1,13 @@
 import type { NewsItem, NewsProvider } from './types';
+import { createClient, MIN } from './http';
 
 // Football news from The Guardian Open Platform (https://open-platform.theguardian.com).
-// Requests go through the /news-api proxy, which adds the API key server-side.
-// Their terms require crediting The Guardian and linking to the original article.
+// Requests go through the server route /api/news, which adds the API key
+// server-side. Their terms require crediting The Guardian and linking to the
+// original article.
+
+// Developer keys allow far more than we use; this just stops runaway loops.
+const client = createClient({ route: '/api/news', maxPerMinute: () => 60 });
 
 interface GuardianResult {
   id: string;
@@ -45,9 +50,7 @@ export const guardianNews: NewsProvider = {
       .filter(Boolean)
       .join(' AND ');
     if (terms) params.set('q', terms);
-    const res = await fetch(`/news-api/search?${params}`);
-    if (!res.ok) throw new Error(`News request failed (${res.status})`);
-    const body = (await res.json()) as { response: { results: GuardianResult[] } };
+    const body = await client.get<{ response: { results: GuardianResult[] } }>(`/search?${params}`, 5 * MIN);
     return body.response.results.map(
       (r): NewsItem => ({
         id: r.id,

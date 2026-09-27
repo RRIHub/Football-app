@@ -45,7 +45,7 @@ If both keys are set, FootIQ uses API-Football.
 3. Set `API_FOOTBALL_REQUESTS_PER_MINUTE` to your plan's limit
 4. `npm run dev`
 
-The key is added by the proxy (`/af-api/*`) and never reaches the browser. The free plan has a small daily request allowance, which is enough to try the app but not to run it for other people. Check their pricing page for plans.
+The key is added server-side by `/api/api-football` and never reaches the browser. The free plan has a small daily request allowance, which is enough to try the app but not to run it for other people. Check their pricing page for plans.
 
 Kick-off times use each visitor's own time zone, and "today" means their local day. Live scores show the minute, stoppage time (e.g. 90+4'), half-time, extra time and penalty shoot-outs.
 
@@ -59,7 +59,7 @@ FootIQ can also use [football-data.org](https://www.football-data.org), a licens
 2. `cp .env.example .env` and set `FOOTBALL_DATA_API_KEY`
 3. `npm run dev`
 
-The key stays server-side. Vite proxies `/api/*` to football-data.org and adds the key there, so it never reaches the browser.
+The key stays server-side: `/api/football-data` adds it to each request, so it never reaches the browser.
 
 The free tier covers the Premier League, Championship, La Liga, Bundesliga, Serie A, Ligue 1, Eredivisie, Primeira Liga, Brasileirão, the Champions League, the European Championship and the World Cup. To show fewer competitions, or more on a paid plan, set `FOOTBALL_DATA_COMPETITIONS` to a comma-separated list of codes (e.g. `PL,PD,CL,WC`).
 
@@ -83,7 +83,7 @@ News comes from [The Guardian Open Platform](https://open-platform.theguardian.c
 1. Get a key at https://open-platform.theguardian.com/access/
 2. Set `GUARDIAN_API_KEY` in `.env`
 
-As with the football data, the key is added by the proxy and never reaches the browser. The Guardian's terms require that stories are credited and link to the original article, so every story shows "The Guardian" and opens on their site. Keep that credit. Without a key, FootIQ shows demo news.
+As with the football data, the key is added server-side by `/api/news` and never reaches the browser. The Guardian's terms require that stories are credited and link to the original article, so every story shows "The Guardian" and opens on their site. Keep that credit. Without a key, FootIQ shows demo news.
 
 Transfer rumours on the Transfers page are Guardian stories about transfers. They are reports, not confirmed deals, and each one links to the original article. No licensed data feed covers rumours, so they come from news.
 
@@ -97,13 +97,32 @@ To offer real accounts that sync across devices, replace `src/auth/accounts.ts` 
 
 All data flows through the `DataProvider` interface in `src/data/types.ts`. To use a different licensed provider (for example, one that includes transfers or detailed stats), implement its methods (`listCompetitions`, `loadCompetition`, `loadMatches`, `loadTeam`, `searchTeams`, `loadTransfers`, optionally `loadPlayer`) to return FootIQ's own types, then select it in `src/data/index.ts`. Only use sources whose terms allow this; don't scrape websites.
 
-### Deploying
+### How the server side works
 
-`npm run build` produces a static site in `dist/`. In live mode, production hosting also needs something to play the proxy's role, e.g. a small serverless function that:
-- forwards `/af-api/*` to `https://v3.football.api-sports.io` with the `x-apisports-key` header (or `/api/*` to `https://api.football-data.org/v4` with `X-Auth-Token`), and
-- forwards `/news-api/*` to `https://content.guardianapis.com` with an `api-key` query parameter.
+The browser never calls a data provider directly. It calls FootIQ's own server routes, which add the API keys from the server's environment:
 
-Have that function cache responses for a few seconds. Then every visitor shares the same requests instead of each one using up your plan's rate limit.
+| Route | Does |
+| --- | --- |
+| `/api/config` | Tells the browser which sources have keys (flags only, never the keys) and the refresh settings |
+| `/api/football-data?path=…` | Forwards to football-data.org with `FOOTBALL_DATA_API_KEY` |
+| `/api/api-football?path=…` | Forwards to API-Football with `API_FOOTBALL_KEY` |
+| `/api/news?path=…` | Forwards to The Guardian with `GUARDIAN_API_KEY` |
+
+The handlers live in `server/handlers.ts`. The files in `api/` expose them as Vercel serverless functions, and `vite.config.ts` serves the same handlers for `npm run dev` and `npm run preview`, so local development runs the production code.
+
+- **Safety:** only `GET` requests to each provider's known endpoints are forwarded, so the keys can't be used for anything else. A key sent from the browser is ignored.
+- **Caching:** successful responses are cached by the CDN for a short time (15 seconds for live scores, longer for tables and squads). Visitors share one upstream request instead of each using up your plan's rate limit.
+- **Which data source:** the app asks `/api/config` at startup. Changing keys only needs a redeploy, not a code change. With no football key set, it runs in demo mode and says so in a banner.
+- **Errors are shown, not hidden:** if live data fails (bad key, plan limit, provider down), the app shows a red banner and an error in each affected section, with the reason from the server. It never switches to demo data. If `/api/config` itself can't be reached, the app stops at an error screen explaining that the server functions aren't responding.
+
+### Deploying to Vercel
+
+1. Import the repository in Vercel. The Vite preset works as is: build command `npm run build`, output directory `dist`. The `api/` folder is deployed as serverless functions automatically.
+2. In **Project → Settings → Environment Variables**, add `FOOTBALL_DATA_API_KEY` (and `GUARDIAN_API_KEY` for news). Tick the environments you deploy to, including **Production**.
+3. **Redeploy.** Vercel only gives environment variables to deployments made after they were added.
+4. Check it: open `https://<your-app>/api/config`. It should show `"dataSource":"football-data"`. If it shows `"demo"`, the variable isn't reaching that deployment; check its name and environments, then redeploy.
+
+Other hosts work too, as long as they run the handlers in `server/handlers.ts` at the same `/api/*` routes.
 
 ## Scripts
 
@@ -111,5 +130,5 @@ Have that function cache responses for a few seconds. Then every visitor shares 
 | --- | --- |
 | `npm run dev` | Start the dev server |
 | `npm run build` | Type-check and build for production |
-| `npm run preview` | Serve the production build (proxy included) |
+| `npm run preview` | Serve the production build (with the /api routes) |
 | `npm test` | Run unit tests |

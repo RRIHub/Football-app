@@ -16,14 +16,14 @@ import type {
   TransferType,
 } from './types';
 import { estimatePrice } from './pricing';
-import { colorFor, createClient, LIVE_REFRESH_MS, localDate, MIN } from './http';
+import { getConfig } from '../config';
+import { colorFor, createClient, liveRefreshMs, localDate, MIN } from './http';
 
 // Licensed data from API-Football (https://www.api-football.com): 1,000+
 // leagues and cups including lower divisions, live scores, squads, player
-// stats and transfers. Requests go through the /af-api proxy, which adds the
-// API key server-side (see vite.config.ts).
+// stats and transfers. Requests go through the server route /api/api-football,
+// which adds the API key server-side (see server/handlers.ts).
 
-declare const __API_FOOTBALL_RATE__: number;
 
 /** API-Football league ids shown in quick pickers, in display order. */
 export const FEATURED_IDS = [
@@ -52,8 +52,11 @@ export function unwrap(body: unknown): unknown {
   return response;
 }
 
-const rate = typeof __API_FOOTBALL_RATE__ === 'number' ? __API_FOOTBALL_RATE__ : 10;
-const client = createClient({ base: '/af-api', maxPerMinute: rate, parse: unwrap });
+const client = createClient({
+  route: '/api/api-football',
+  maxPerMinute: () => getConfig().apiFootballRequestsPerMinute,
+  parse: unwrap,
+});
 const get = client.get;
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -341,7 +344,7 @@ export const apiFootballProvider: DataProvider = {
         get<AfFixture[]>(
           `/fixtures?date=${d}&timezone=${encodeURIComponent(timeZone)}`,
           // Today's scores change constantly; other days rarely do.
-          d === today ? LIVE_REFRESH_MS - 1000 : 30 * MIN,
+          d === today ? liveRefreshMs() - 1000 : 30 * MIN,
         ),
       ),
     );

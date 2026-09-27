@@ -19,9 +19,10 @@ export function PlayerPage({ code, id }: { code: string; id: number }) {
   const p = single.data ?? fromComp;
   const transfers = useTransfers(p ? [p.teamId] : []);
 
-  const pending = canLoadPlayer ? single.loading && !p : !comp.data || comp.data.competition.code !== code;
-  const error = canLoadPlayer ? single.error : comp.error;
-  if (error && !p) return <ErrorBox message={error} onRetry={canLoadPlayer ? single.reload : comp.reload} />;
+  const perPlayer = canLoadPlayer();
+  const pending = perPlayer ? single.loading && !p : !comp.data || comp.data.competition.code !== code;
+  const error = perPlayer ? single.error : comp.error;
+  if (error && !p) return <ErrorBox message={error} onRetry={perPlayer ? single.reload : comp.reload} />;
   if (pending) return <Loading what="player" />;
 
   if (!p)

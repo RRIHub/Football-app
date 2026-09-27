@@ -1,4 +1,6 @@
+import { useSyncExternalStore } from 'react';
 import { useAuth } from './auth/AuthContext';
+import { dataHealth } from './data/http';
 import { dataAttribution, useApp } from './state/AppContext';
 import { href, useRoute, type Route } from './state/router';
 import { HomePage } from './pages/HomePage';
@@ -54,6 +56,8 @@ export function App() {
   const route = useRoute();
   const { source } = useApp();
   const { user, signOut, finishOnboarding } = useAuth();
+  const dataError = useSyncExternalStore(dataHealth.subscribe, dataHealth.get);
+  const attribution = dataAttribution();
 
   // New accounts pick their favourite clubs and players first.
   if (user && !user.onboarded)
@@ -95,8 +99,13 @@ export function App() {
       </header>
       {source === 'demo' && (
         <div className="demo-banner">
-          Demo mode: fictional players and sample results. Add a data key to get real players, live scores and news
-          (see README).
+          Demo mode: no football data key is set on the server, so these are fictional players and sample results.
+          Set FOOTBALL_DATA_API_KEY or API_FOOTBALL_KEY and redeploy (see README).
+        </div>
+      )}
+      {dataError && (
+        <div className="error-banner" role="alert">
+          <strong>Live data isn't loading.</strong> {dataError}
         </div>
       )}
       <main className="container">
@@ -104,11 +113,11 @@ export function App() {
       </main>
       <footer className="footer muted">
         FootIQ
-        {dataAttribution && (
+        {attribution && (
           <>
             {' · '}Data provided by{' '}
-            <a href={dataAttribution.url} target="_blank" rel="noreferrer">
-              {dataAttribution.label}
+            <a href={attribution.url} target="_blank" rel="noreferrer">
+              {attribution.label}
             </a>
           </>
         )}

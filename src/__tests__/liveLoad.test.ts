@@ -5,7 +5,7 @@ const ars = { id: 57, name: 'Arsenal FC', shortName: 'Arsenal', tla: 'ARS', cres
 const rma = { id: 86, name: 'Real Madrid CF', shortName: 'Real Madrid', tla: 'RMA', crest: 'rma.png' };
 
 const responses: Record<string, unknown> = {
-  '/api/competitions/CL/teams': {
+  '/competitions/CL/teams': {
     competition: { name: 'UEFA Champions League', emblem: 'cl.png' },
     season: { startDate: '2026-09-15' },
     teams: [
@@ -13,21 +13,21 @@ const responses: Record<string, unknown> = {
       { ...rma, clubColors: 'White / Purple', area: { name: 'Spain' }, squad: [] },
     ],
   },
-  '/api/competitions/CL/matches': {
+  '/competitions/CL/matches': {
     matches: [
       { id: 9, utcDate: '2026-09-16T19:00:00Z', status: 'FINISHED', matchday: 1, stage: 'LEAGUE_STAGE', group: null, homeTeam: ars, awayTeam: rma, score: { fullTime: { home: 2, away: 1 } } },
     ],
   },
-  '/api/competitions/CL/scorers?limit=100': {
+  '/competitions/CL/scorers?limit=100': {
     scorers: [{ player: { id: 2, name: 'B Striker', nationality: 'Brazil', section: 'Offence' }, team: rma, playedMatches: 1, goals: 1, assists: 0 }],
   },
-  '/api/competitions/CL/standings': {
+  '/competitions/CL/standings': {
     standings: [
       { type: 'TOTAL', stage: 'LEAGUE_STAGE', group: null, table: [{ position: 1, team: ars, playedGames: 1, won: 1, draw: 0, lost: 0, points: 3, goalsFor: 2, goalsAgainst: 1 }] },
       { type: 'HOME', stage: 'LEAGUE_STAGE', group: null, table: [] },
     ],
   },
-  '/api/teams/57': {
+  '/teams/57': {
     ...ars,
     clubColors: 'Red / White',
     area: { name: 'England' },
@@ -37,7 +37,7 @@ const responses: Record<string, unknown> = {
     ],
     squad: [],
   },
-  '/api/teams/57/matches': {
+  '/teams/57/matches': {
     matches: [
       { id: 9, utcDate: '2026-09-16T19:00:00Z', status: 'FINISHED', matchday: 1, stage: 'LEAGUE_STAGE', competition: { code: 'CL', name: 'UEFA Champions League' }, homeTeam: ars, awayTeam: rma, score: { fullTime: { home: 2, away: 1 } } },
     ],
@@ -48,7 +48,9 @@ afterEach(() => vi.unstubAllGlobals());
 
 function stubFetch() {
   const fetch = vi.fn(async (url: string) => {
-    const body = responses[url];
+    // The browser calls /api/football-data?path=<football-data path>.
+    const u = new URL(url, 'http://x');
+    const body = u.pathname === '/api/football-data' ? responses[u.searchParams.get('path')!] : undefined;
     return { ok: Boolean(body), status: body ? 200 : 404, json: async () => body } as Response;
   });
   vi.stubGlobal('fetch', fetch);

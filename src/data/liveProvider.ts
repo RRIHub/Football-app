@@ -13,13 +13,12 @@ import type {
   TeamRef,
 } from './types';
 import { estimatePrice } from './pricing';
-import { createClient, LIVE_REFRESH_MS, MIN } from './http';
+import { getConfig } from '../config';
+import { createClient, liveRefreshMs, MIN } from './http';
 
 // Licensed data from football-data.org (https://www.football-data.org).
-// Requests go through the dev/preview proxy at /api, which adds the API key
-// server-side (see vite.config.ts). Free tier: 10 requests/minute.
-
-declare const __COMPETITIONS__: string;
+// Requests go through the server route /api/football-data, which adds the API
+// key server-side (see server/handlers.ts). Free tier: 10 requests/minute.
 
 const CATALOGUE: Record<string, Omit<Competition, 'code' | 'emblem'>> = {
   PL: { name: 'Premier League', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'domestic', format: 'league' },
@@ -42,9 +41,8 @@ const CATALOGUE: Record<string, Omit<Competition, 'code' | 'emblem'>> = {
 // Everything on football-data.org's free tier.
 const DEFAULT_CODES = ['PL', 'ELC', 'PD', 'BL1', 'SA', 'FL1', 'DED', 'PPL', 'BSA', 'CL', 'EC', 'WC'];
 
-function configuredCompetitions(): Competition[] {
-  const raw = typeof __COMPETITIONS__ === 'string' && __COMPETITIONS__ ? __COMPETITIONS__ : '';
-  const codes = raw ? raw.split(',').map((c) => c.trim().toUpperCase()).filter(Boolean) : DEFAULT_CODES;
+export function configuredCompetitions(raw = getConfig().competitions): Competition[] {
+  const codes = raw.trim() ? raw.split(',').map((c) => c.trim().toUpperCase()).filter(Boolean) : DEFAULT_CODES;
   return codes.map((code) => ({
     code,
     featured: true,
@@ -52,7 +50,7 @@ function configuredCompetitions(): Competition[] {
   }));
 }
 
-const client = createClient({ base: '/api', maxPerMinute: 10 });
+const client = createClient({ route: '/api/football-data', maxPerMinute: () => 10 });
 const get = client.get;
 
 /* ---------- response shapes (subset of football-data.org v4) ---------- */
@@ -230,21 +228,22 @@ function makePlayer(
 
 /* ---------- provider ---------- */
 
-const competitions = configuredCompetitions();
+// Read when first needed, after the server's config has loaded.
+const competitions = () => configuredCompetitions();
 
 export const liveProvider: DataProvider = {
   id: 'football-data',
   attribution: { label: 'football-data.org', url: 'https://www.football-data.org' },
 
   async listCompetitions() {
-    return competitions;
+    return competitions();
   },
 
   async searchTeams(query) {
     // No search endpoint: look through the (cached) team lists of each competition.
     const q = query.trim().toLowerCase();
     if (q.length < 2) return [];
-    const lists = await Promise.allSettled(competitions.map((c) => this.loadCompetition(c.code)));
+    const lists = await Promise.allSettled(competitions().map((c) => this.loadCompetition(c.code)));
     const seen = new Set<number>();
     return lists
       .flatMap((r) => (r.status === 'fulfilled' ? r.value.teams : []))
@@ -253,7 +252,7 @@ export const liveProvider: DataProvider = {
   },
 
   async loadCompetition(code): Promise<CompetitionData> {
-    const competition = competitions.find((c) => c.code === code);
+    const competition = competitions().find((c) => c.code === code);
     if (!competition) throw new Error(`Unknown competition ${code}`);
     const [teamsRes, matchesRes, scorersRes, standingsRes] = await Promise.all([
       get<{ competition: { name: string; emblem?: string }; season: { startDate: string }; teams: ApiTeam[] }>(
@@ -327,7 +326,7 @@ export const liveProvider: DataProvider = {
     // Dates are UTC, so ask for the UTC days that cover the local range, then trim.
     const { matches } = await get<{ matches: ApiMatch[] }>(
       `/matches?dateFrom=${isoDate(from)}&dateTo=${isoDate(to)}`,
-      LIVE_REFRESH_MS - 1000,
+      liveRefreshMs() - 1000,
     );
     return matches
       .map((m) => mapMatch(m))
