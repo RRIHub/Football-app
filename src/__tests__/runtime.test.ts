@@ -5,7 +5,7 @@ import { selectNews, selectProvider } from '../data';
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  setConfig({ dataSource: 'demo', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10 });
+  setConfig({ dataSource: 'demo', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device' });
 });
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -32,9 +32,9 @@ describe('fetchConfig', () => {
 
 describe('provider selection', () => {
   it('follows the server config', () => {
-    expect(selectProvider({ dataSource: 'football-data', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10 }).id).toBe('football-data');
-    expect(selectProvider({ dataSource: 'api-football', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10 }).id).toBe('api-football');
-    expect(selectNews({ dataSource: 'demo', news: true, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10 }).id).toBe('guardian');
+    expect(selectProvider({ dataSource: 'football-data', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device' }).id).toBe('football-data');
+    expect(selectProvider({ dataSource: 'api-football', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device' }).id).toBe('api-football');
+    expect(selectNews({ dataSource: 'demo', news: true, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device' }).id).toBe('guardian');
   });
 });
 
@@ -43,11 +43,11 @@ describe('data errors', () => {
     const client = createClient({ route: '/api/test-errors', maxPerMinute: () => 100 });
     vi.stubGlobal('fetch', async () => jsonResponse({ error: 'FOOTBALL_DATA_API_KEY is not set on the server.' }, 503));
     await expect(client.get('/matches', 0)).rejects.toThrow('FOOTBALL_DATA_API_KEY is not set on the server.');
-    expect(dataHealth.get()).toBe('FOOTBALL_DATA_API_KEY is not set on the server.');
+    expect(dataHealth.get()).toEqual([{ kind: 'data', message: 'FOOTBALL_DATA_API_KEY is not set on the server.' }]);
 
     vi.stubGlobal('fetch', async () => jsonResponse({ ok: true }));
     await client.get('/matches', 0);
-    expect(dataHealth.get()).toBeNull();
+    expect(dataHealth.get()).toEqual([]);
   });
 });
 

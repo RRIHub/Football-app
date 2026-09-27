@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Connect, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { accountHandler } from './server/accounts.js';
 import { configHandler, proxyHandler, type Env } from './server/handlers.js';
 
 /**
@@ -12,6 +13,7 @@ function apiRoutes(env: Env): Plugin {
     '/api/football-data': proxyHandler('football-data', env),
     '/api/api-football': proxyHandler('api-football', env),
     '/api/news': proxyHandler('news', env),
+    '/api/account': accountHandler(env),
   };
   const middleware: Connect.NextHandleFunction = (req, res, next) => {
     const path = (req.url ?? '').split('?')[0];

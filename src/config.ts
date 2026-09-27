@@ -12,6 +12,7 @@ const DEFAULTS: RuntimeConfig = {
   competitions: '',
   liveRefreshSeconds: 20,
   apiFootballRequestsPerMinute: 10,
+  accounts: 'device',
 };
 
 let current: RuntimeConfig = DEFAULTS;

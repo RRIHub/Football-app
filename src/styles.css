@@ -293,3 +293,4 @@ details.comp-group:not([open]) > summary::before { transform: rotate(-90deg); }
 .error-banner { background: #2a1216; color: #fecaca; border-bottom: 1px solid #5c1d27; text-align: center; font-size: 0.85rem; padding: 8px 16px; }
 .splash-error { max-width: 480px; text-align: left; }
 .splash-error p + p { margin-top: 6px; }
+.login-warning { margin: 14px 0 0; padding: 8px 12px; border-radius: 10px; background: #2a2410; color: var(--gold); text-align: center; }

@@ -13,7 +13,7 @@ Football scores, player stats, news and transfers for leagues and cups around th
 - **Players**: a searchable, sortable stats table for any league, filterable by position and club. Player pages show which league the stats come from.
 - **Build XI**: pick 11 players from any league in one of six formations within an £85m budget (max 3 per club). Choose a captain for double points and see your season points.
 - **Transfers**: confirmed signings, loans and free transfers for your clubs. Rumours come from news stories, each linked to its source.
-- Accounts, favourites and your XI are saved in this browser (see [Accounts](#accounts)).
+- Accounts work on any device, and favourites and your XI are saved to the account (see [Accounts](#accounts)).
 
 ## Getting started
 
@@ -97,9 +97,21 @@ Transfer rumours on the Transfers page are Guardian stories about transfers. The
 
 ### Accounts
 
-Accounts are stored on the device: names, emails and favourites live in the browser's localStorage. Passwords are salted and hashed (PBKDF2-SHA256) and never stored as typed. So accounts don't follow you between devices or browsers, and clearing site data removes them.
+Accounts are stored on the server, so people can sign in with the same email and password on any device. Their favourite clubs, favourite players and Build XI team are saved to the account and follow them.
 
-To offer real accounts that sync across devices, replace `src/auth/accounts.ts` with a hosted auth service (e.g. Supabase, Firebase Auth or Auth0) and store favourites in its database. `AuthContext` and the rest of the app don't need to change.
+- **Staying signed in:** signing in sets a secure, HttpOnly session cookie that lasts 30 days and renews on every visit. People stay signed in until they sign out or don't visit for 30 days.
+- **Passwords** are hashed with scrypt on the server and never stored as typed. Sessions are stored only as a SHA-256 of the cookie token.
+- **Protection:** 10 failed sign-ins for an email within 15 minutes pause further attempts. Cross-site requests to the account API are refused.
+- **Saving:** changes to favourites or the XI save to the account about half a second later. If saving fails, a red banner says so.
+
+The account API is one route, `/api/account` (code in `server/accounts.ts`). It needs storage:
+
+| Where | Storage |
+| --- | --- |
+| Vercel | Redis via **Upstash** (see [Deploying to Vercel](#deploying-to-vercel)) |
+| `npm run dev` / `npm run preview` | A local file, `.footiq-dev-db.json` (git-ignored) |
+
+If a Vercel deployment has no Redis connected, accounts can't be stored on the server. The login screen then says that accounts only work in this browser, and the app falls back to saving them in the browser. If someone used a browser-only account before, their favourites are copied into their server account the first time they sign in with the same email on that browser.
 
 ### Adding another data source
 
@@ -127,8 +139,9 @@ The handlers live in `server/handlers.ts`. The files in `api/` expose them as Ve
 
 1. Import the repository in Vercel. The Vite preset works as is: build command `npm run build`, output directory `dist`. The `api/` folder is deployed as serverless functions automatically.
 2. In **Project → Settings → Environment Variables**, add `FOOTBALL_DATA_API_KEY` (and `GUARDIAN_API_KEY` for news). Tick the environments you deploy to, including **Production**.
-3. **Redeploy.** Vercel only gives environment variables to deployments made after they were added.
-4. Check it: open `https://<your-app>/api/config`. It should show `"dataSource":"football-data"`. If it shows `"demo"`, the variable isn't reaching that deployment; check its name and environments, then redeploy.
+3. For accounts, open **Project → Storage** (or the Vercel Marketplace), add **Upstash for Redis** and connect it to this project. Vercel adds its connection variables (`KV_REST_API_URL` and `KV_REST_API_TOKEN`) for you. `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` work too, if you set up Upstash yourself.
+4. **Redeploy.** Vercel only gives environment variables to deployments made after they were added.
+5. Check it: open `https://<your-app>/api/config`. It should show `"dataSource":"football-data"` and `"accounts":"server"`. If `dataSource` is `"demo"` or `accounts` is `"device"`, the variables aren't reaching that deployment; check their names and environments, then redeploy.
 
 Other hosts work too, as long as they run the handlers in `server/handlers.ts` at the same `/api/*` routes.
 

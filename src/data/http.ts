@@ -13,13 +13,21 @@ export interface Client {
 /* ---------- live-data health ---------- */
 
 type Listener = () => void;
-// Latest error per server route, so news working doesn't hide scores failing.
-const errors = new Map<string, string>();
-let snapshot: string | null = null;
+
+export interface Problem {
+  /** 'data' for live football data and news; 'account' for saving account changes. */
+  kind: 'data' | 'account';
+  message: string;
+}
+
+// Latest error per source, so news working doesn't hide scores failing.
+const errors = new Map<string, Problem>();
+const NONE: Problem[] = [];
+let snapshot: Problem[] = NONE;
 const listeners = new Set<Listener>();
 
 export const dataHealth = {
-  /** The current error message, or null when every data source is healthy. */
+  /** Current problems (the same array until something changes); empty when all is well. */
   get: () => snapshot,
   subscribe(l: Listener) {
     listeners.add(l);
@@ -27,11 +35,12 @@ export const dataHealth = {
   },
 };
 
-function report(route: string, error: string | null) {
-  if ((errors.get(route) ?? null) === error) return;
-  if (error) errors.set(route, error);
-  else errors.delete(route);
-  snapshot = errors.size ? [...errors.values()].join(' ') : null;
+/** Record (or clear, with null) the latest error from one source. */
+export function reportProblem(source: string, error: string | null, kind: Problem['kind'] = 'data') {
+  if ((errors.get(source)?.message ?? null) === error) return;
+  if (error) errors.set(source, { kind, message: error });
+  else errors.delete(source);
+  snapshot = errors.size ? [...errors.values()] : NONE;
   listeners.forEach((l) => l());
 }
 
@@ -93,10 +102,10 @@ export function createClient({
       });
       cache.set(path, { at: Date.now(), value });
       value.then(
-        () => report(route, null),
+        () => reportProblem(route, null),
         (e: unknown) => {
           cache.delete(path);
-          report(route, e instanceof Error ? e.message : String(e));
+          reportProblem(route, e instanceof Error ? e.message : String(e));
         },
       );
       return value;
