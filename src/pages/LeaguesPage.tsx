@@ -4,7 +4,7 @@ import { useApp } from '../state/AppContext';
 import { href } from '../state/router';
 
 const SECTIONS: [CompetitionCategory, string][] = [
-  ['domestic', 'Top leagues'],
+  ['domestic', 'Leagues'],
   ['cup', 'Domestic cups'],
   ['europe', 'Continental competitions'],
   ['international', 'International'],

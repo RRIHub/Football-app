@@ -17,7 +17,7 @@ import type {
 } from './types';
 import { estimatePrice } from './pricing';
 import { getConfig } from '../config';
-import { colorFor, createClient, liveRefreshMs, localDate, MIN } from './http';
+import { colorFor, createClient, liveRefreshMs, localDate, MIN, seasonName } from './http';
 
 // Licensed data from API-Football (https://www.api-football.com): 1,000+
 // leagues and cups including lower divisions, live scores, squads, player
@@ -35,6 +35,7 @@ export const FEATURED_IDS = [
   135, 136, // Italy: Serie A, Serie B
   61, 62, // France: Ligue 1, Ligue 2
   88, 94, // Eredivisie, Primeira Liga
+  253, 307, // MLS, Saudi Pro League
   2, 3, 848, // Champions League, Europa League, Conference League
   1, 4, 9, 6, // World Cup, Euro Championship, Copa América, Africa Cup of Nations
   5, 10, // UEFA Nations League, international friendlies
@@ -76,7 +77,7 @@ interface AfTeam {
 interface AfLeagueEntry {
   league: { id: number; name: string; type: 'League' | 'Cup'; logo?: string };
   country: { name: string; code: string | null; flag: string | null };
-  seasons: { year: number; current: boolean }[];
+  seasons: { year: number; current: boolean; start?: string; end?: string }[];
 }
 interface AfFixture {
   fixture: {
@@ -135,7 +136,8 @@ export function mapLeague(e: AfLeagueEntry): Competition {
         : 'domestic';
   // Friendlies (national or club) have no table: just a list of matches.
   const format = category === 'cup' || friendlies ? 'knockout' : category === 'international' ? 'groups' : 'league';
-  const season = e.seasons.find((s) => s.current)?.year ?? e.seasons.at(-1)?.year;
+  const current = e.seasons.find((s) => s.current) ?? e.seasons.at(-1);
+  const season = current?.year;
   return {
     code: String(e.league.id),
     name: e.league.name,
@@ -145,6 +147,12 @@ export function mapLeague(e: AfLeagueEntry): Competition {
     format,
     featured: FEATURED_IDS.includes(e.league.id),
     season,
+    // Prefer the season's real dates; without them, tournaments are named by year.
+    seasonLabel: current?.start
+      ? seasonName(current.start, current.end)
+      : category === 'international' && season
+        ? String(season)
+        : undefined,
   };
 }
 
@@ -327,10 +335,9 @@ export const apiFootballProvider: DataProvider = {
       const player = mapPlayer(p, ref, Number(code));
       if (player && !players.has(player.id)) players.set(player.id, player);
     }
-    const start = competition.season ?? new Date().getFullYear();
     return {
       competition,
-      season: competition.category === 'international' ? String(start) : `${start}/${String(start + 1).slice(2)}`,
+      season: competition.seasonLabel ?? seasonName(competition.season),
       teams,
       players: [...players.values()],
       matches: fixtures.map(mapFixture),

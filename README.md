@@ -22,7 +22,7 @@ npm install
 npm run dev
 ```
 
-Without an API key the app runs in **demo mode**, with generated fixtures and fictional players so you can try every feature. Demo mode includes the Premier League, Championship, League One, La Liga, Bundesliga, Serie A, Ligue 1, the EFL Cup and the Champions League. For international football it has the World Cup, Euros, Copa América, Africa Cup of Nations, Nations League and friendlies, with 54 national teams. The demo tournaments are labelled "Demo edition" because their results are invented. Demo players are fictional, and the demo news is written from demo results. Real players, scores and news need the API keys below.
+Without an API key the app runs in **demo mode**, with generated fixtures and fictional players so you can try every feature. Demo mode includes the Premier League, Championship, League One, League Two, La Liga, LaLiga 2, Bundesliga, Serie A, Ligue 1, Ligue 2, MLS (with Eastern and Western Conference tables), the Saudi Pro League, the EFL Cup, and the Champions League, Europa League and Conference League. For international football it has the World Cup, Euros, Copa América, Africa Cup of Nations, Nations League and friendlies, with 54 national teams. The demo tournaments are labelled "Demo edition" because their results are invented. Demo players are fictional, and the demo news is written from demo results. Real players, scores and news need the API keys below.
 
 ### Where the data comes from
 
@@ -34,6 +34,9 @@ All scores, stats and transfers come from licensed football data APIs, so they'r
 | Live scores | Yes, with minute, half-time, extra time and penalties | Yes |
 | Squads & player stats | Full squads, per-player stats | Squads, top scorers |
 | Transfers | Confirmed transfers per club | Not available |
+| Europa League, Conference League | Yes | Europa League on paid plans only |
+| MLS, Saudi Pro League | Yes | No |
+| League One, League Two, LaLiga 2, Ligue 2 | Yes | No (Championship and Ligue 1 are free) |
 | International | World Cup, Euros, Copa América, Africa Cup of Nations, Nations League, friendlies, and World Cup qualifiers in every region | World Cup and Euros only |
 | Price | Free tier for testing; paid plans for real traffic | Free tier |
 
@@ -47,6 +50,8 @@ If both keys are set, FootIQ uses API-Football.
 4. `npm run dev`
 
 The key is added server-side by `/api/api-football` and never reaches the browser. The free plan has a small daily request allowance, which is enough to try the app but not to run it for other people. Check their pricing page for plans.
+
+The Leagues page features the English, Spanish, German, Italian and French top two divisions (plus League One and League Two), MLS, the Saudi Pro League, the Champions League, Europa League and Conference League. Every other league is in the country browser. Seasons are named from their real dates, so calendar-year leagues like MLS show "2026" rather than "2026/27".
 
 International football appears in its own section on the Leagues page and under an **Internationals** filter on the Scores page. National teams can be followed like clubs (search for the country, or pick them from a tournament).
 

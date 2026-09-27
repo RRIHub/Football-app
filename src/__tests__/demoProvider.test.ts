@@ -21,7 +21,7 @@ describe('demo world', () => {
     for (const c of world.competitions.filter((c) => c.category === 'domestic')) {
       const d = world.data.get(c.code)!;
       expect(d.teams.every((t) => t.league?.code === c.code)).toBe(true);
-      expect(d.standings[0].rows).toHaveLength(d.teams.length);
+      expect(d.standings.flatMap((g) => g.rows)).toHaveLength(d.teams.length);
     }
   });
 
@@ -146,5 +146,56 @@ describe('demo international football', () => {
     const squad = w.nationSquads.get(morocco.id)!;
     expect(squad.length).toBeGreaterThan(11);
     expect(squad.every((p) => p.nationality === 'Morocco')).toBe(true);
+  });
+});
+
+describe('demo: more leagues and European competitions', () => {
+  const w = buildDemoWorld(new Date('2026-09-27T15:00:00Z'));
+
+  it('includes League Two, LaLiga 2, Ligue 2, MLS and the Saudi Pro League with full tables', () => {
+    for (const [code, size] of [['EL2', 24], ['SD', 22], ['FL2', 18], ['MLS', 30], ['SPL', 18]] as const) {
+      const d = w.data.get(code)!;
+      expect(d.teams).toHaveLength(size);
+      expect(d.standings.flatMap((g) => g.rows)).toHaveLength(size);
+      expect(d.players.length).toBe(size * 15);
+      expect(d.competition.featured).toBe(true);
+    }
+  });
+
+  it('splits MLS into two conference tables, each numbered from 1', () => {
+    const mls = w.data.get('MLS')!;
+    expect(mls.standings.map((g) => g.name)).toEqual(['Eastern Conference', 'Western Conference']);
+    for (const g of mls.standings) {
+      expect(g.rows).toHaveLength(15);
+      expect(g.rows.map((r) => r.position)).toEqual(Array.from({ length: 15 }, (_, i) => i + 1));
+    }
+    const east = mls.standings[0].rows.map((r) => r.team.name);
+    expect(east).toContain('Inter Miami CF');
+    expect(east).not.toContain('LA Galaxy');
+    expect(mls.teams.find((t) => t.name === 'Toronto FC')!.area).toBe('Canada');
+    expect(mls.teams.find((t) => t.name === 'LA Galaxy')!.area).toBe('United States');
+  });
+
+  it('plays the Europa League and Conference League with 36 clubs each and no overlap with the Champions League', () => {
+    const ids = (code: string) => new Set(w.data.get(code)!.teams.map((t) => t.id));
+    const [cl, el, ecl] = [ids('CL'), ids('EL'), ids('ECL')];
+    expect([cl.size, el.size, ecl.size]).toEqual([36, 36, 36]);
+    for (const id of el) expect(cl.has(id) || ecl.has(id)).toBe(false);
+    for (const id of ecl) expect(cl.has(id)).toBe(false);
+    for (const code of ['EL', 'ECL']) {
+      const d = w.data.get(code)!;
+      expect(d.standings[0]).toMatchObject({ name: 'League phase' });
+      expect(new Set(d.matches.map((m) => m.matchday))).toEqual(new Set([1, 2, 3, 4, 5, 6, 7, 8]));
+      // Thursday nights.
+      expect(d.matches.every((m) => new Date(m.utcDate).getUTCDay() === new Date(d.matches[0].utcDate).getUTCDay())).toBe(true);
+    }
+  });
+});
+
+describe('demo season labels', () => {
+  it('names the MLS season by calendar year', () => {
+    const w = buildDemoWorld(new Date('2026-09-27T15:00:00Z'));
+    expect(w.data.get('MLS')!.season).toBe('2026');
+    expect(w.data.get('PL')!.season).toBe('2026/27');
   });
 });

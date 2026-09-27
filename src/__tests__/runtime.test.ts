@@ -50,3 +50,12 @@ describe('data errors', () => {
     expect(dataHealth.get()).toBeNull();
   });
 });
+
+describe('seasonName', () => {
+  it('uses one year for calendar-year seasons and two for split seasons', async () => {
+    const { seasonName } = await import('../data/http');
+    expect(seasonName('2026-08-15', '2027-05-23')).toBe('2026/27');
+    expect(seasonName('2026-02-21', '2026-12-05')).toBe('2026');
+    expect(seasonName(2026)).toBe('2026/27');
+  });
+});

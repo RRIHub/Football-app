@@ -35,6 +35,10 @@ describe('API-Football mapping', () => {
     expect(mapLeague(entry(32, 'World Cup - Qualification Europe', 'Cup', 'World'))).toMatchObject({ category: 'international' });
     expect(mapLeague(entry(4, 'Euro Championship', 'Cup', 'World')).category).toBe('international');
     expect(mapLeague(entry(999, 'Liga 3', 'League', 'Romania')).featured).toBe(false);
+    expect(mapLeague(entry(253, 'Major League Soccer', 'League', 'USA'))).toMatchObject({ category: 'domestic', featured: true });
+    expect(mapLeague(entry(307, 'Pro League', 'League', 'Saudi-Arabia'))).toMatchObject({ category: 'domestic', featured: true });
+    expect(mapLeague(entry(848, 'UEFA Europa Conference League', 'Cup', 'World'))).toMatchObject({ category: 'europe', featured: true });
+    expect(mapLeague(entry(3, 'UEFA Europa League', 'Cup', 'World'))).toMatchObject({ category: 'europe', featured: true });
     // International tournaments and friendlies.
     expect(mapLeague(entry(9, 'Copa America', 'Cup', 'World'))).toMatchObject({ category: 'international', featured: true });
     expect(mapLeague(entry(6, 'Africa Cup of Nations', 'Cup', 'World'))).toMatchObject({ category: 'international', featured: true });
@@ -43,6 +47,14 @@ describe('API-Football mapping', () => {
     // Club competitions stay out of the international section.
     expect(mapLeague(entry(667, 'Friendlies Clubs', 'Cup', 'World'))).toMatchObject({ category: 'cup', format: 'knockout' });
     expect(mapLeague(entry(15, 'FIFA Club World Cup', 'Cup', 'World')).category).toBe('europe');
+  });
+
+  it('names seasons from their dates', () => {
+    const league = (id: number, name: string, country: string, seasons: object[]) =>
+      mapLeague({ league: { id, name, type: 'League', logo: '' }, country: { name: country, code: null, flag: null }, seasons } as never);
+    expect(league(39, 'Premier League', 'England', [{ year: 2026, current: true, start: '2026-08-15', end: '2027-05-23' }]).seasonLabel).toBe('2026/27');
+    expect(league(253, 'Major League Soccer', 'USA', [{ year: 2026, current: true, start: '2026-02-21', end: '2026-12-05' }]).seasonLabel).toBe('2026');
+    expect(league(1, 'World Cup', 'World', [{ year: 2026, current: true }]).seasonLabel).toBe('2026');
   });
 
   it('maps every live and finished status accurately', () => {
