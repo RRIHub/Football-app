@@ -106,6 +106,16 @@ export function createClient({
 
 export const MIN = 60_000;
 
+/**
+ * "2026/27" for a season spanning two years, "2026" for one inside a single
+ * year (MLS, Brazil and other calendar-year leagues, and tournaments).
+ */
+export function seasonName(start: string | number | undefined, end?: string | null): string {
+  const from = typeof start === 'number' ? start : start ? new Date(start).getUTCFullYear() : new Date().getUTCFullYear();
+  const to = end ? new Date(end).getUTCFullYear() : from + 1;
+  return to > from ? `${from}/${String(to).slice(2)}` : String(from);
+}
+
 /** Stable colour for teams whose provider doesn't supply club colours. */
 export function colorFor(id: number): string {
   const palette = ['#d7263d', '#1d4ed8', '#15803d', '#7a263a', '#f59e0b', '#0e7490', '#6b21a8', '#be185d', '#475569', '#b45309'];

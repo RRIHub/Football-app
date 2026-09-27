@@ -14,7 +14,7 @@ import type {
 } from './types';
 import { estimatePrice } from './pricing';
 import { getConfig } from '../config';
-import { createClient, liveRefreshMs, MIN } from './http';
+import { createClient, liveRefreshMs, MIN, seasonName } from './http';
 
 // Licensed data from football-data.org (https://www.football-data.org).
 // Requests go through the server route /api/football-data, which adds the API
@@ -255,7 +255,7 @@ export const liveProvider: DataProvider = {
     const competition = competitions().find((c) => c.code === code);
     if (!competition) throw new Error(`Unknown competition ${code}`);
     const [teamsRes, matchesRes, scorersRes, standingsRes] = await Promise.all([
-      get<{ competition: { name: string; emblem?: string }; season: { startDate: string }; teams: ApiTeam[] }>(
+      get<{ competition: { name: string; emblem?: string }; season: { startDate: string; endDate?: string | null }; teams: ApiTeam[] }>(
         `/competitions/${code}/teams`,
         60 * MIN,
       ),
@@ -307,10 +307,9 @@ export const liveProvider: DataProvider = {
         })),
       }));
 
-    const start = new Date(teamsRes.season.startDate).getUTCFullYear();
     return {
       competition: { ...competition, emblem: teamsRes.competition.emblem },
-      season: competition.category === 'international' ? String(start) : `${start}/${String(start + 1).slice(2)}`,
+      season: seasonName(teamsRes.season.startDate, teamsRes.season.endDate),
       teams,
       players: [...players.values()],
       matches: matchesRes.matches.map((m) => {

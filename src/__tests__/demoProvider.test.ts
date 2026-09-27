@@ -21,7 +21,7 @@ describe('demo world', () => {
     for (const c of world.competitions.filter((c) => c.category === 'domestic')) {
       const d = world.data.get(c.code)!;
       expect(d.teams.every((t) => t.league?.code === c.code)).toBe(true);
-      expect(d.standings[0].rows).toHaveLength(d.teams.length);
+      expect(d.standings.flatMap((g) => g.rows)).toHaveLength(d.teams.length);
     }
   });
 
@@ -81,5 +81,121 @@ describe('demo transfers', () => {
     const now = new Date('2026-09-27T15:00:00Z');
     const w = buildDemoWorld(now);
     expect(w.transfers.every((t) => Date.parse(t.date) <= now.getTime())).toBe(true);
+  });
+});
+
+describe('demo international football', () => {
+  const now = new Date('2026-09-27T15:00:00Z');
+  const w = buildDemoWorld(now);
+  const confOf = (id: number) => w.teams.get(id)!;
+
+  it('covers the World Cup, Euros, Copa América, AFCON, Nations League and friendlies', () => {
+    for (const code of ['WC', 'EC', 'CA', 'AFCON', 'UNL', 'FRI']) {
+      const c = w.competitions.find((x) => x.code === code)!;
+      expect(c.category).toBe('international');
+      expect(w.data.get(code)!.matches.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('plays a finished World Cup from groups through to a single final', () => {
+    const wc = w.data.get('WC')!;
+    expect(wc.standings).toHaveLength(8);
+    expect(wc.matches.every((m) => m.status === 'FINISHED')).toBe(true);
+    const stages = ['Round of 16', 'Quarter-finals', 'Semi-finals', 'Final'].map(
+      (s) => wc.matches.filter((m) => m.stage === s).length,
+    );
+    expect(stages).toEqual([8, 4, 2, 1]);
+    // Every knockout team topped or finished second in its group.
+    const qualified = new Set(wc.standings.flatMap((g) => g.rows.slice(0, 2).map((r) => r.team.id)));
+    for (const m of wc.matches.filter((m) => m.stage === 'Round of 16')) {
+      expect(qualified.has(m.home.id) && qualified.has(m.away.id)).toBe(true);
+    }
+  });
+
+  it('only shows group fixtures for tournaments that have not started', () => {
+    for (const code of ['EC', 'CA', 'AFCON']) {
+      const t = w.data.get(code)!;
+      expect(t.matches.every((m) => m.status === 'SCHEDULED' && m.stage?.startsWith('Group'))).toBe(true);
+      expect(t.standings.every((g) => g.rows.length === 4 && g.rows.every((r) => r.played === 0))).toBe(true);
+    }
+  });
+
+  it('keeps each tournament to its own confederation', () => {
+    const names = (code: string) => w.data.get(code)!.teams.map((t) => t.name);
+    expect(names('UNL')).not.toContain('Brazil');
+    expect(names('UNL')).toContain('England');
+    expect(names('AFCON')).toEqual(expect.arrayContaining(['Morocco', 'Senegal', 'Nigeria']));
+    expect(names('AFCON')).not.toContain('France');
+    expect(names('CA')).toEqual(expect.arrayContaining(['Brazil', 'Argentina', 'Mexico']));
+    expect(names('EC')).not.toContain('Brazil');
+    expect(w.data.get('WC')!.teams.every((t) => confOf(t.id).national)).toBe(true);
+  });
+
+  it('plays friendlies in international windows without a table', () => {
+    const fri = w.data.get('FRI')!;
+    expect(fri.competition.format).toBe('knockout');
+    expect(fri.standings).toEqual([]);
+    expect(new Set(fri.matches.map((m) => m.stage))).toEqual(new Set(['September window', 'October window']));
+    // Nations League sides are busy with their own fixtures.
+    const nl = new Set(w.data.get('UNL')!.teams.map((t) => t.id));
+    expect(fri.matches.every((m) => !nl.has(m.home.id) && !nl.has(m.away.id))).toBe(true);
+  });
+
+  it('picks national squads from players of that nationality', () => {
+    const morocco = w.data.get('AFCON')!.teams.find((t) => t.name === 'Morocco')!;
+    const squad = w.nationSquads.get(morocco.id)!;
+    expect(squad.length).toBeGreaterThan(11);
+    expect(squad.every((p) => p.nationality === 'Morocco')).toBe(true);
+  });
+});
+
+describe('demo: more leagues and European competitions', () => {
+  const w = buildDemoWorld(new Date('2026-09-27T15:00:00Z'));
+
+  it('includes League Two, LaLiga 2, Ligue 2, MLS and the Saudi Pro League with full tables', () => {
+    for (const [code, size] of [['EL2', 24], ['SD', 22], ['FL2', 18], ['MLS', 30], ['SPL', 18]] as const) {
+      const d = w.data.get(code)!;
+      expect(d.teams).toHaveLength(size);
+      expect(d.standings.flatMap((g) => g.rows)).toHaveLength(size);
+      expect(d.players.length).toBe(size * 15);
+      expect(d.competition.featured).toBe(true);
+    }
+  });
+
+  it('splits MLS into two conference tables, each numbered from 1', () => {
+    const mls = w.data.get('MLS')!;
+    expect(mls.standings.map((g) => g.name)).toEqual(['Eastern Conference', 'Western Conference']);
+    for (const g of mls.standings) {
+      expect(g.rows).toHaveLength(15);
+      expect(g.rows.map((r) => r.position)).toEqual(Array.from({ length: 15 }, (_, i) => i + 1));
+    }
+    const east = mls.standings[0].rows.map((r) => r.team.name);
+    expect(east).toContain('Inter Miami CF');
+    expect(east).not.toContain('LA Galaxy');
+    expect(mls.teams.find((t) => t.name === 'Toronto FC')!.area).toBe('Canada');
+    expect(mls.teams.find((t) => t.name === 'LA Galaxy')!.area).toBe('United States');
+  });
+
+  it('plays the Europa League and Conference League with 36 clubs each and no overlap with the Champions League', () => {
+    const ids = (code: string) => new Set(w.data.get(code)!.teams.map((t) => t.id));
+    const [cl, el, ecl] = [ids('CL'), ids('EL'), ids('ECL')];
+    expect([cl.size, el.size, ecl.size]).toEqual([36, 36, 36]);
+    for (const id of el) expect(cl.has(id) || ecl.has(id)).toBe(false);
+    for (const id of ecl) expect(cl.has(id)).toBe(false);
+    for (const code of ['EL', 'ECL']) {
+      const d = w.data.get(code)!;
+      expect(d.standings[0]).toMatchObject({ name: 'League phase' });
+      expect(new Set(d.matches.map((m) => m.matchday))).toEqual(new Set([1, 2, 3, 4, 5, 6, 7, 8]));
+      // Thursday nights.
+      expect(d.matches.every((m) => new Date(m.utcDate).getUTCDay() === new Date(d.matches[0].utcDate).getUTCDay())).toBe(true);
+    }
+  });
+});
+
+describe('demo season labels', () => {
+  it('names the MLS season by calendar year', () => {
+    const w = buildDemoWorld(new Date('2026-09-27T15:00:00Z'));
+    expect(w.data.get('MLS')!.season).toBe('2026');
+    expect(w.data.get('PL')!.season).toBe('2026/27');
   });
 });

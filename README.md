@@ -6,7 +6,7 @@ Football scores, player stats, news and transfers for leagues and cups around th
 
 - **Accounts**: create an account or sign in. New accounts pick their favourite clubs (search any club, or browse by league), then favourite players from those clubs' squads. Change them anytime with **Edit favourites**.
 - **My FootIQ**: a personal feed with live matches, today's games, your teams' last result and next fixture in any competition, your players' stats, and transfer news involving them.
-- **Scores**: pick a day, then see matches grouped by competition. Filter by live games, "my teams" or a single competition. Live scores refresh automatically (every 20 seconds by default).
+- **Scores**: pick a day, then see matches grouped by competition. Filter by live games, "my teams", internationals or a single competition. Live scores refresh automatically (every 20 seconds by default).
 - **News**: the latest football news, or only stories about the teams you follow. News also appears in your feed and on team pages.
 - **Leagues**: browse featured competitions, or every country's leagues and cups, including lower divisions. Each has a table (group tables for tournaments, knockout rounds for cups), matches by round, top scorers and assists, and a list of teams.
 - **Teams**: club and national team pages show the team's league, every competition it plays in, its league position and form, and results and fixtures labelled by competition. They also show the squad and transfers.
@@ -22,7 +22,7 @@ npm install
 npm run dev
 ```
 
-Without an API key the app runs in **demo mode**, with generated fixtures and fictional players so you can try every feature. Demo mode includes the Premier League, Championship, League One, La Liga, Bundesliga, Serie A, Ligue 1, the EFL Cup, the Champions League and the Nations League. Demo players are fictional, and the demo news is written from demo results. Real players, scores and news need the API keys below.
+Without an API key the app runs in **demo mode**, with generated fixtures and fictional players so you can try every feature. Demo mode includes the Premier League, Championship, League One, League Two, La Liga, LaLiga 2, Bundesliga, Serie A, Ligue 1, Ligue 2, MLS (with Eastern and Western Conference tables), the Saudi Pro League, the EFL Cup, and the Champions League, Europa League and Conference League. For international football it has the World Cup, Euros, Copa América, Africa Cup of Nations, Nations League and friendlies, with 54 national teams. The demo tournaments are labelled "Demo edition" because their results are invented. Demo players are fictional, and the demo news is written from demo results. Real players, scores and news need the API keys below.
 
 ### Where the data comes from
 
@@ -34,6 +34,10 @@ All scores, stats and transfers come from licensed football data APIs, so they'r
 | Live scores | Yes, with minute, half-time, extra time and penalties | Yes |
 | Squads & player stats | Full squads, per-player stats | Squads, top scorers |
 | Transfers | Confirmed transfers per club | Not available |
+| Europa League, Conference League | Yes | Europa League on paid plans only |
+| MLS, Saudi Pro League | Yes | No |
+| League One, League Two, LaLiga 2, Ligue 2 | Yes | No (Championship and Ligue 1 are free) |
+| International | World Cup, Euros, Copa América, Africa Cup of Nations, Nations League, friendlies, and World Cup qualifiers in every region | World Cup and Euros only |
 | Price | Free tier for testing; paid plans for real traffic | Free tier |
 
 If both keys are set, FootIQ uses API-Football.
@@ -46,6 +50,10 @@ If both keys are set, FootIQ uses API-Football.
 4. `npm run dev`
 
 The key is added server-side by `/api/api-football` and never reaches the browser. The free plan has a small daily request allowance, which is enough to try the app but not to run it for other people. Check their pricing page for plans.
+
+The Leagues page features the English, Spanish, German, Italian and French top two divisions (plus League One and League Two), MLS, the Saudi Pro League, the Champions League, Europa League and Conference League. Every other league is in the country browser. Seasons are named from their real dates, so calendar-year leagues like MLS show "2026" rather than "2026/27".
+
+International football appears in its own section on the Leagues page and under an **Internationals** filter on the Scores page. National teams can be followed like clubs (search for the country, or pick them from a tournament).
 
 Kick-off times use each visitor's own time zone, and "today" means their local day. Live scores show the minute, stoppage time (e.g. 90+4'), half-time, extra time and penalty shoot-outs.
 
@@ -72,7 +80,7 @@ While matches are live, scores refresh every `LIVE_REFRESH_SECONDS` (default 20,
 Free-tier limitations:
 - Stats cover goals, assists and appearances (from the top-scorers list). Minutes, cards and clean sheets need a paid plan.
 - Transfers aren't included. The Transfers page shows a notice in live mode.
-- International football is limited to the World Cup and the European Championship. Nations League, qualifiers and friendlies need a paid plan.
+- International football is limited to the World Cup and the European Championship, so there are no international matches between those tournaments. For Copa América, the Africa Cup of Nations, the Nations League, qualifiers and friendlies, use API-Football: set `API_FOOTBALL_KEY` and redeploy, and FootIQ switches to it automatically.
 
 The provider asks for a credit, so the footer says "Data provided by football-data.org" in live mode. Keep it.
 

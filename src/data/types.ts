@@ -16,6 +16,8 @@ export interface Competition {
   featured?: boolean;
   /** Season start year, for providers that need it in requests. */
   season?: number;
+  /** Display name of the current season, e.g. "2026/27" or "2026". */
+  seasonLabel?: string;
 }
 
 export interface CompetitionRef {
