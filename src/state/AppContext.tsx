@@ -7,6 +7,7 @@ import {
   type CompetitionData,
   type CompetitionRef,
   type Match,
+  type MatchDetails,
   type NewsItem,
   type Player,
   type Position,
@@ -151,6 +152,19 @@ export function useMatchesOnDay(dayOffset = 0) {
     const t = setInterval(reload, liveRefreshMs());
     return () => clearInterval(t);
   }, [hasLive, reload]);
+  return res;
+}
+
+/** One match in full; refreshes while it's being played. */
+export function useMatch(id: number) {
+  const res = useResource<MatchDetails>(`match:${id}`, () => provider.loadMatch(id), isLive() ? liveRefreshMs() : Infinity);
+  const live = res.data?.match.status === 'LIVE';
+  const { reload } = res;
+  useEffect(() => {
+    if (!live || !isLive()) return;
+    const t = setInterval(reload, liveRefreshMs());
+    return () => clearInterval(t);
+  }, [live, reload]);
   return res;
 }
 

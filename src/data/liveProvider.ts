@@ -3,7 +3,12 @@ import type {
   CompetitionCategory,
   CompetitionData,
   DataProvider,
+  Lineup,
+  LineupPlayer,
   Match,
+  MatchDetails,
+  MatchEvent,
+  MatchPlayer,
   MatchStatus,
   Player,
   Position,
@@ -11,6 +16,7 @@ import type {
   Team,
   TeamData,
   TeamRef,
+  TeamStat,
 } from './types';
 import { estimatePrice } from './pricing';
 import { getConfig } from '../config';
@@ -226,6 +232,115 @@ function makePlayer(
   };
 }
 
+/* ---------- match details ---------- */
+
+// Scorers, cards, subs, line-ups and team stats come with football-data.org's
+// paid "deep data"; the free plan returns the score, venue and referee only.
+interface FdPerson {
+  id?: number | null;
+  name?: string | null;
+}
+interface FdSide {
+  id: number;
+  coach?: { name?: string | null } | null;
+  formation?: string | null;
+  lineup?: (FdPerson & { position?: string | null; shirtNumber?: number | null })[];
+  bench?: (FdPerson & { position?: string | null; shirtNumber?: number | null })[];
+  statistics?: Record<string, number | null>;
+}
+export interface FdMatchDetail extends ApiMatch {
+  venue?: string | null;
+  referees?: { name: string; type?: string | null }[];
+  score: ApiMatch['score'] & { halfTime?: { home: number | null; away: number | null } };
+  homeTeam: ApiMatch['homeTeam'] & Partial<FdSide>;
+  awayTeam: ApiMatch['awayTeam'] & Partial<FdSide>;
+  goals?: { minute: number; injuryTime?: number | null; type?: string | null; team: { id: number }; scorer?: FdPerson | null; assist?: FdPerson | null }[];
+  bookings?: { minute: number; team: { id: number }; player?: FdPerson | null; card?: string | null }[];
+  substitutions?: { minute: number; team: { id: number }; playerOut?: FdPerson | null; playerIn?: FdPerson | null }[];
+}
+
+const FD_STATS: [string, string, string?][] = [
+  ['ball_possession', 'Possession', '%'],
+  ['shots', 'Shots'],
+  ['shots_on_goal', 'Shots on target'],
+  ['shots_off_goal', 'Shots off target'],
+  ['corner_kicks', 'Corners'],
+  ['offsides', 'Offsides'],
+  ['fouls', 'Fouls'],
+  ['yellow_cards', 'Yellow cards'],
+  ['red_cards', 'Red cards'],
+  ['saves', 'Saves'],
+  ['free_kicks', 'Free kicks'],
+  ['throw_ins', 'Throw-ins'],
+];
+
+const fdPositions: Record<Position, LineupPlayer['position']> = { GK: 'G', DEF: 'D', MID: 'M', FWD: 'F' };
+
+export function mapFdMatchDetail(m: FdMatchDetail): MatchDetails {
+  const match = mapMatch(m);
+  const code = match.competition.code;
+  const who = (p?: FdPerson | null): MatchPlayer | undefined => (p?.name ? { id: p.id ?? undefined, name: p.name, code } : undefined);
+  const events: MatchEvent[] = [];
+  for (const g of m.goals ?? []) {
+    const type = g.type === 'OWN' ? 'own-goal' : g.type === 'PENALTY' ? 'penalty' : 'goal';
+    events.push({ minute: g.minute, extra: g.injuryTime ?? undefined, teamId: g.team.id, type, player: who(g.scorer), assist: type === 'goal' ? who(g.assist) : undefined });
+  }
+  for (const b of m.bookings ?? []) {
+    const type = b.card === 'RED' ? 'red' : b.card === 'YELLOW_RED' ? 'second-yellow' : 'yellow';
+    events.push({ minute: b.minute, teamId: b.team.id, type, player: who(b.player) });
+  }
+  for (const sub of m.substitutions ?? []) {
+    events.push({ minute: sub.minute, teamId: sub.team.id, type: 'sub', playerOn: who(sub.playerIn), playerOff: who(sub.playerOut) });
+  }
+  events.sort((a, b) => a.minute - b.minute || (a.extra ?? 0) - (b.extra ?? 0));
+
+  const lineup = (side: Partial<FdSide> & { id: number }): Lineup | null => {
+    if (!side.lineup?.length) return null;
+    const player = (p: NonNullable<FdSide['lineup']>[number]): LineupPlayer => ({
+      id: p.id ?? undefined,
+      name: p.name ?? '—',
+      code,
+      number: p.shirtNumber ?? undefined,
+      position: p.position ? fdPositions[mapPosition(p.position)] : undefined,
+    });
+    return {
+      teamId: side.id,
+      formation: side.formation ?? undefined,
+      coach: side.coach?.name ?? undefined,
+      startXI: side.lineup.map(player),
+      substitutes: (side.bench ?? []).map(player),
+    };
+  };
+  const lineups = [lineup(m.homeTeam), lineup(m.awayTeam)].filter((l): l is Lineup => l !== null);
+
+  const hs = m.homeTeam.statistics;
+  const as = m.awayTeam.statistics;
+  const stats: TeamStat[] =
+    hs && as
+      ? FD_STATS.filter(([k]) => hs[k] != null || as[k] != null).map(([k, label, unit]) => ({
+          label,
+          home: hs[k] == null ? null : unit ? `${hs[k]}${unit}` : hs[k],
+          away: as[k] == null ? null : unit ? `${as[k]}${unit}` : as[k],
+        }))
+      : [];
+
+  const played = match.status === 'LIVE' || match.status === 'FINISHED';
+  const unavailable: MatchDetails['unavailable'] = [];
+  if (played && !m.goals && !m.bookings) unavailable.push('events');
+  if (!lineups.length && played) unavailable.push('lineups');
+  if (!stats.length && played) unavailable.push('stats');
+  return {
+    match,
+    venue: m.venue ?? undefined,
+    referee: m.referees?.find((r) => !r.type || r.type === 'REFEREE')?.name,
+    halfTime: m.score.halfTime,
+    events,
+    lineups,
+    stats,
+    unavailable: unavailable.length ? unavailable : undefined,
+  };
+}
+
 /* ---------- provider ---------- */
 
 // Read when first needed, after the server's config has loaded.
@@ -361,5 +476,9 @@ export const liveProvider: DataProvider = {
 
   async loadTransfers() {
     return null;
+  },
+
+  async loadMatch(id) {
+    return mapFdMatchDetail(await get<FdMatchDetail>(`/matches/${id}`, liveRefreshMs() - 1000));
   },
 };

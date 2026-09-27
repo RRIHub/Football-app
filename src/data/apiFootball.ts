@@ -4,7 +4,12 @@ import type {
   CompetitionData,
   CompetitionRef,
   DataProvider,
+  Lineup,
+  LineupPlayer,
   Match,
+  MatchDetails,
+  MatchEvent,
+  MatchPlayer,
   MatchStatus,
   Player,
   Position,
@@ -12,6 +17,7 @@ import type {
   Team,
   TeamData,
   TeamRef,
+  TeamStat,
   Transfer,
   TransferType,
 } from './types';
@@ -84,11 +90,40 @@ interface AfFixture {
     id: number;
     date: string;
     status: { short: string; elapsed: number | null; extra?: number | null };
+    referee?: string | null;
+    venue?: { name: string | null; city: string | null };
   };
   league: { id: number; name: string; round?: string | null };
   teams: { home: AfTeam; away: AfTeam };
   goals: { home: number | null; away: number | null };
-  score?: { penalty?: { home: number | null; away: number | null } };
+  score?: {
+    halftime?: { home: number | null; away: number | null };
+    penalty?: { home: number | null; away: number | null };
+  };
+  // Only on /fixtures?id=… responses.
+  events?: AfEvent[];
+  lineups?: AfLineup[];
+  statistics?: { team: { id: number }; statistics: { type: string; value: number | string | null }[] }[];
+}
+interface AfPerson {
+  id: number | null;
+  name: string | null;
+}
+interface AfEvent {
+  time: { elapsed: number; extra: number | null };
+  team: { id: number };
+  player: AfPerson;
+  assist: AfPerson;
+  type: string;
+  detail: string;
+  comments?: string | null;
+}
+interface AfLineup {
+  team: { id: number };
+  coach?: { name: string | null } | null;
+  formation: string | null;
+  startXI: { player: { id: number | null; name: string; number: number | null; pos: string | null; grid: string | null } }[];
+  substitutes: { player: { id: number | null; name: string; number: number | null; pos: string | null; grid: string | null } }[];
 }
 interface AfStandingRow {
   rank: number;
@@ -268,6 +303,131 @@ export function mapTransferType(raw: string | null): { type: TransferType; fee?:
   return { type: 'permanent', fee: fee ? fee.replace(/\s+/g, '').replace(/M$/, 'm').replace(/K$/, 'k') : undefined };
 }
 
+/* ---------- match details ---------- */
+
+const person = (p: AfPerson | null | undefined, code: string): MatchPlayer | undefined =>
+  p?.name ? { id: p.id ?? undefined, name: p.name, code } : undefined;
+
+export function mapEvent(e: AfEvent, code: string): MatchEvent | null {
+  const base = { minute: e.time.elapsed, extra: e.time.extra ?? undefined, teamId: e.team.id, detail: e.comments ?? undefined };
+  const player = person(e.player, code);
+  const assist = person(e.assist, code);
+  const detail = e.detail.toLowerCase();
+  switch (e.type.toLowerCase()) {
+    case 'goal':
+      if (detail.includes('missed')) return { ...base, type: 'missed-penalty', player };
+      if (detail.includes('own')) return { ...base, type: 'own-goal', player };
+      if (detail.includes('penalty')) return { ...base, type: 'penalty', player };
+      return { ...base, type: 'goal', player, assist };
+    case 'card':
+      if (detail.includes('second')) return { ...base, type: 'second-yellow', player };
+      return { ...base, type: detail.includes('red') ? 'red' : 'yellow', player };
+    case 'subst':
+      // The feed doesn't reliably say which of the two came on; resolveSubs works it out from the line-ups.
+      return player && assist ? { ...base, type: 'sub', swapped: [player, assist] } : null;
+    case 'var':
+      return { ...base, type: 'var', player, detail: e.detail };
+    default:
+      return null;
+  }
+}
+
+const POS: Record<string, LineupPlayer['position']> = { G: 'G', D: 'D', M: 'M', F: 'F' };
+
+export function mapLineup(l: AfLineup, code: string): Lineup {
+  const player = ({ player: p }: AfLineup['startXI'][number]): LineupPlayer => ({
+    id: p.id ?? undefined,
+    name: p.name,
+    code,
+    number: p.number ?? undefined,
+    position: p.pos ? POS[p.pos] : undefined,
+    grid: p.grid ?? undefined,
+  });
+  return {
+    teamId: l.team.id,
+    formation: l.formation ?? undefined,
+    coach: l.coach?.name ?? undefined,
+    startXI: l.startXI.map(player),
+    substitutes: l.substitutes.map(player),
+  };
+}
+
+/** API-Football statistic names → our labels, in display order. */
+const STAT_LABELS: [string, string][] = [
+  ['Ball Possession', 'Possession'],
+  ['expected_goals', 'Expected goals (xG)'],
+  ['Total Shots', 'Shots'],
+  ['Shots on Goal', 'Shots on target'],
+  ['Shots off Goal', 'Shots off target'],
+  ['Blocked Shots', 'Blocked shots'],
+  ['Shots insidebox', 'Shots inside the box'],
+  ['Corner Kicks', 'Corners'],
+  ['Offsides', 'Offsides'],
+  ['Fouls', 'Fouls'],
+  ['Yellow Cards', 'Yellow cards'],
+  ['Red Cards', 'Red cards'],
+  ['Goalkeeper Saves', 'Saves'],
+  ['Total passes', 'Passes'],
+  ['Passes %', 'Pass accuracy'],
+];
+
+export function mapStatistics(stats: NonNullable<AfFixture['statistics']>, homeId: number): TeamStat[] {
+  const home = stats.find((s) => s.team.id === homeId)?.statistics ?? [];
+  const away = stats.find((s) => s.team.id !== homeId)?.statistics ?? [];
+  const value = (list: typeof home, type: string) => list.find((x) => x.type === type)?.value ?? null;
+  return STAT_LABELS.filter(([type]) => value(home, type) !== null || value(away, type) !== null).map(([type, label]) => ({
+    label,
+    home: value(home, type),
+    away: value(away, type),
+  }));
+}
+
+/**
+ * Works out who came on and who went off: whoever is on the pitch at the time
+ * (in the starting XI, or on as an earlier substitute) is the one going off.
+ * If that can't be decided, the substitution keeps both names without a direction.
+ */
+export function resolveSubs(events: MatchEvent[], lineups: Lineup[]): MatchEvent[] {
+  const key = (p: MatchPlayer) => (p.id !== undefined ? `id:${p.id}` : `name:${p.name}`);
+  const onPitch = new Map(lineups.map((l) => [l.teamId, new Set(l.startXI.map(key))]));
+  return events.map((e) => {
+    if (e.type !== 'sub' || !e.swapped) return e;
+    const pitch = onPitch.get(e.teamId);
+    const [a, b] = e.swapped;
+    const aOn = pitch?.has(key(a));
+    const bOn = pitch?.has(key(b));
+    if (!pitch || aOn === bOn) return e;
+    const [off, on] = aOn ? [a, b] : [b, a];
+    pitch.delete(key(off));
+    pitch.add(key(on));
+    return { ...e, swapped: undefined, playerOn: on, playerOff: off };
+  });
+}
+
+export function mapMatchDetails(f: AfFixture): MatchDetails {
+  const match = mapFixture(f);
+  const code = match.competition.code;
+  const venue = [f.fixture.venue?.name, f.fixture.venue?.city].filter(Boolean).join(', ');
+  const lineups = (f.lineups ?? []).map((l) => mapLineup(l, code));
+  // Home side first.
+  lineups.sort((a, b) => Number(b.teamId === match.home.id) - Number(a.teamId === match.home.id));
+  return {
+    match,
+    venue: venue || undefined,
+    referee: f.fixture.referee ?? undefined,
+    halfTime: f.score?.halftime,
+    events: resolveSubs(
+      (f.events ?? [])
+        .map((e) => mapEvent(e, code))
+        .filter((e): e is MatchEvent => e !== null)
+        .sort((a, b) => a.minute - b.minute || (a.extra ?? 0) - (b.extra ?? 0)),
+      lineups,
+    ),
+    lineups,
+    stats: mapStatistics(f.statistics ?? [], match.home.id),
+  };
+}
+
 /* ---------- provider ---------- */
 
 async function competitions(): Promise<Competition[]> {
@@ -431,6 +591,12 @@ export const apiFootballProvider: DataProvider = {
     const competition = await competitionMeta(code);
     const res = await get<AfPlayer[]>(`/players?id=${id}&season=${competition.season}`, 30 * MIN);
     return res[0] ? mapPlayer(res[0], { code, name: competition.name }, Number(code)) : undefined;
+  },
+
+  async loadMatch(id) {
+    const res = await get<AfFixture[]>(`/fixtures?id=${id}&timezone=${encodeURIComponent(timeZone)}`, liveRefreshMs() - 1000);
+    if (!res[0]) throw new Error('Match not found.');
+    return mapMatchDetails(res[0]);
   },
 
   async searchTeams(query) {
