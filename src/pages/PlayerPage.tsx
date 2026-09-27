@@ -5,7 +5,7 @@ import { ErrorBox, Loading } from '../components/Status';
 import { TeamBadge } from '../components/TeamBadge';
 import { NO_TRANSFER_FEED, TransferList } from '../components/TransferList';
 import { fantasyPoints } from '../data/pricing';
-import { followPlayer, useApp, useCompetition, useTransfers } from '../state/AppContext';
+import { canLoadPlayer, followPlayer, useApp, useCompetition, usePlayer, useTransfers } from '../state/AppContext';
 import { href } from '../state/router';
 
 const POSITION_NAME = { GK: 'Goalkeeper', DEF: 'Defender', MID: 'Midfielder', FWD: 'Forward' } as const;
@@ -13,12 +13,18 @@ const POSITION_NAME = { GK: 'Goalkeeper', DEF: 'Defender', MID: 'Midfielder', FW
 export function PlayerPage({ code, id }: { code: string; id: number }) {
   const { followedPlayers } = useApp();
   const comp = useCompetition(code);
-  const transfers = useTransfers();
+  // Providers with a per-player endpoint give full stats for any squad player.
+  const single = usePlayer(code, id);
+  const fromComp = comp.data?.competition.code === code ? comp.data.players.find((x) => x.id === id) : undefined;
+  const p = single.data ?? fromComp;
+  const transfers = useTransfers(p ? [p.teamId] : []);
 
-  if (comp.error && !comp.data) return <ErrorBox message={comp.error} onRetry={comp.reload} />;
-  if (!comp.data || comp.data.competition.code !== code) return <Loading what="player" />;
+  const perPlayer = canLoadPlayer();
+  const pending = perPlayer ? single.loading && !p : !comp.data || comp.data.competition.code !== code;
+  const error = perPlayer ? single.error : comp.error;
+  if (error && !p) return <ErrorBox message={error} onRetry={perPlayer ? single.reload : comp.reload} />;
+  if (pending) return <Loading what="player" />;
 
-  const p = comp.data.players.find((x) => x.id === id);
   if (!p)
     return (
       <section className="panel">
@@ -28,9 +34,9 @@ export function PlayerPage({ code, id }: { code: string; id: number }) {
     );
   const s = p.stats;
   const perNinety = (n: number) => (s.minutes ? ((n / s.minutes) * 90).toFixed(2) : '—');
-  const rank = s.goals
-    ? [...comp.data.players].sort((a, b) => b.stats.goals - a.stats.goals).findIndex((x) => x.id === p.id) + 1
-    : 0;
+  const leaders = comp.data?.competition.code === code ? comp.data.players : [];
+  const rankIndex = [...leaders].sort((a, b) => b.stats.goals - a.stats.goals).findIndex((x) => x.id === p.id);
+  const rank = s.goals && rankIndex >= 0 ? rankIndex + 1 : 0;
   const history = (transfers.data ?? []).filter((t) => t.playerId === p.id);
 
   return (

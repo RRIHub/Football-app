@@ -1,41 +1,35 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Connect, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { configHandler, proxyHandler, type Env } from './server/handlers.js';
+
+/**
+ * Serves the same /api handlers that run as Vercel functions in production,
+ * so `npm run dev` and `npm run preview` behave like the deployed app.
+ */
+function apiRoutes(env: Env): Plugin {
+  const routes: Record<string, Connect.NextHandleFunction> = {
+    '/api/config': configHandler(env),
+    '/api/football-data': proxyHandler('football-data', env),
+    '/api/api-football': proxyHandler('api-football', env),
+    '/api/news': proxyHandler('news', env),
+  };
+  const middleware: Connect.NextHandleFunction = (req, res, next) => {
+    const path = (req.url ?? '').split('?')[0];
+    const handler = routes[path];
+    if (!handler) return next();
+    Promise.resolve(handler(req, res, next)).catch(next);
+  };
+  return {
+    name: 'footiq-api',
+    configureServer: (server) => void server.middlewares.use(middleware),
+    configurePreviewServer: (server) => void server.middlewares.use(middleware),
+  };
+}
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
-  const apiKey = env.FOOTBALL_DATA_API_KEY;
-  const newsKey = env.GUARDIAN_API_KEY;
-
-  const proxy: Record<string, object> = {};
-  if (apiKey)
-    proxy['/api'] = {
-      target: 'https://api.football-data.org/v4',
-      changeOrigin: true,
-      rewrite: (path: string) => path.replace(/^\/api/, ''),
-      headers: { 'X-Auth-Token': apiKey },
-    };
-  if (newsKey)
-    proxy['/news-api'] = {
-      target: 'https://content.guardianapis.com',
-      changeOrigin: true,
-      // The Guardian takes its key as a query parameter; add it here so it never reaches the browser.
-      rewrite: (path: string) => {
-        const rest = path.replace(/^\/news-api/, '');
-        return `${rest}${rest.includes('?') ? '&' : '?'}api-key=${encodeURIComponent(newsKey)}`;
-      },
-    };
-
+  // Keys from .env files and the shell; they stay in this server process.
+  const env: Env = { ...process.env, ...loadEnv(mode, process.cwd(), '') };
   return {
-    plugins: [react()],
-    define: {
-      // Only flags reach the client; keys stay in the proxy.
-      __LIVE_DATA__: JSON.stringify(Boolean(apiKey)),
-      __LIVE_NEWS__: JSON.stringify(Boolean(newsKey)),
-      // Optional comma-separated competition codes, e.g. "PL,PD,CL,WC".
-      __COMPETITIONS__: JSON.stringify(env.FOOTBALL_DATA_COMPETITIONS ?? ''),
-      __LIVE_REFRESH_SECONDS__: JSON.stringify(Number(env.LIVE_REFRESH_SECONDS) || 20),
-    },
-    server: { proxy },
-    preview: { proxy },
+    plugins: [react(), apiRoutes(env)],
   };
 });

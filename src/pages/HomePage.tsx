@@ -12,7 +12,7 @@ import {
   followTeam,
   useApp,
   useCompetition,
-  useMatchWindow,
+  useMatchesOnDay,
   useNews,
   useTeam,
   useTransfers,
@@ -23,15 +23,13 @@ import { href } from '../state/router';
 
 export function HomePage() {
   const { followedTeams, followedPlayers } = useApp();
-  const matchWindow = useMatchWindow();
-  const transfers = useTransfers();
+  const today = useMatchesOnDay(0);
+  const transfers = useTransfers(followedTeams.ids);
   const newsFor = useNews(followedTeams.items.length ? followedTeams.items : undefined);
-  const live = (matchWindow.data ?? []).filter((m) => m.status === 'LIVE');
+  const live = (today.data ?? []).filter((m) => m.status === 'LIVE');
   const nothingFollowed = !followedTeams.items.length && !followedPlayers.items.length;
   // Keep the picker open after the first tap so several teams can be chosen at once.
   const [onboarding, setOnboarding] = useState(nothingFollowed);
-  const today = new Date().toDateString();
-  const todays = (matchWindow.data ?? []).filter((m) => new Date(m.utcDate).toDateString() === today);
 
   const myTransfers = (transfers.data ?? []).filter(
     (t) =>
@@ -115,12 +113,12 @@ export function HomePage() {
 
       <section className="panel">
         <h2>Today's matches</h2>
-        {matchWindow.error && !matchWindow.data ? (
-          <ErrorBox message={matchWindow.error} onRetry={matchWindow.reload} />
-        ) : !matchWindow.data ? (
+        {today.error && !today.data ? (
+          <ErrorBox message={today.error} onRetry={today.reload} />
+        ) : !today.data ? (
           <Loading what="matches" />
         ) : (
-          <MatchesByCompetition matches={todays} empty="No matches today in the competitions we cover." />
+          <MatchesByCompetition matches={today.data} empty="No matches today in the competitions we cover." />
         )}
       </section>
     </>

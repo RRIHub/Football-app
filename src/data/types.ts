@@ -12,6 +12,10 @@ export interface Competition {
   category: CompetitionCategory;
   /** One table, several group tables, or knockout rounds with no table. */
   format: 'league' | 'groups' | 'knockout';
+  /** Shown in quick pickers; everything else is reached through the country browser. */
+  featured?: boolean;
+  /** Season start year, for providers that need it in requests. */
+  season?: number;
 }
 
 export interface CompetitionRef {
@@ -69,6 +73,8 @@ export interface Match {
   utcDate: string;
   status: MatchStatus;
   minute?: number;
+  /** Overrides the status label, e.g. "HT", "ET", "Pens", "AET". */
+  statusText?: string;
   matchday?: number;
   /** e.g. "Group A", "League phase", "Round of 16". */
   stage?: string;
@@ -128,14 +134,25 @@ export interface TeamData {
 }
 
 export interface DataProvider {
-  readonly id: 'live' | 'demo';
-  readonly competitions: Competition[];
+  readonly id: 'api-football' | 'football-data' | 'demo';
+  /** Human-readable credit for the footer. */
+  readonly attribution?: { label: string; url: string };
+  listCompetitions(): Promise<Competition[]>;
   loadCompetition(code: string): Promise<CompetitionData>;
   /** Matches across every competition between two dates (inclusive). */
   loadMatches(from: Date, to: Date): Promise<Match[]>;
   loadTeam(id: number): Promise<TeamData>;
-  /** null when the provider has no transfer feed. */
-  loadTransfers(): Promise<Transfer[] | null>;
+  /** Clubs and national teams whose name matches the query. */
+  searchTeams(query: string): Promise<Team[]>;
+  /**
+   * Confirmed transfers, for the given teams if the provider needs them
+   * (some feeds only list transfers per team). null when there's no feed.
+   */
+  loadTransfers(teamIds: number[]): Promise<Transfer[] | null>;
+  /** True if loadTransfers needs team ids to return anything. */
+  readonly transfersByTeam?: boolean;
+  /** Full stats for one player, when the competition's data doesn't include them. */
+  loadPlayer?(code: string, id: number): Promise<Player | undefined>;
 }
 
 export interface NewsItem {
@@ -155,6 +172,9 @@ export interface NewsProvider {
   readonly id: 'guardian' | 'demo';
   /** Credit shown with the news, as required by the provider. */
   readonly attribution?: { label: string; url: string };
-  /** Latest football news, optionally only stories mentioning any of `teams`. */
-  load(teams?: { id: number; name: string }[]): Promise<NewsItem[]>;
+  /**
+   * Latest football news, optionally only stories mentioning any of `teams`,
+   * or only transfer stories (which is where rumours come from).
+   */
+  load(teams?: { id: number; name: string }[], topic?: 'transfers'): Promise<NewsItem[]>;
 }

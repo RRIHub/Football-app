@@ -13,6 +13,7 @@ export function timeAgo(iso: string, now = Date.now()): string {
 }
 
 export function NewsList({ items, empty, compact = false }: { items: NewsItem[]; empty: string; compact?: boolean }) {
+  const attribution = newsAttribution();
   if (!items.length) return <p className="muted">{empty}</p>;
   return (
     <>
@@ -40,11 +41,11 @@ export function NewsList({ items, empty, compact = false }: { items: NewsItem[];
           );
         })}
       </ul>
-      {newsAttribution && (
+      {attribution && (
         <p className="muted small attribution">
           News from{' '}
-          <a href={newsAttribution.url} target="_blank" rel="noreferrer">
-            {newsAttribution.label}
+          <a href={attribution.url} target="_blank" rel="noreferrer">
+            {attribution.label}
           </a>
         </p>
       )}

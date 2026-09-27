@@ -9,7 +9,12 @@ export function LeagueTag({ competition, plain = false }: { competition: Competi
   const c = lookup(competition.code);
   const label = (
     <>
-      {c?.flag && <span aria-hidden>{c.flag}</span>} {competition.name}
+      {c?.emblem ? (
+        <img className="tag-emblem" src={c.emblem} alt="" width={16} height={16} loading="lazy" />
+      ) : (
+        c?.flag && <span aria-hidden>{c.flag}</span>
+      )}{' '}
+      {competition.name}
     </>
   );
   if (plain || !c) return <span className="league-tag">{label}</span>;

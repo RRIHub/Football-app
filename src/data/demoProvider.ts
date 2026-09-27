@@ -23,14 +23,16 @@ import { estimatePrice, fantasyPoints } from './pricing';
 type TeamSeed = [name: string, shortName: string, tla: string, color: string];
 
 const COMPETITIONS: Competition[] = [
-  { code: 'PL', name: 'Premier League', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'domestic', format: 'league' },
-  { code: 'PD', name: 'La Liga', area: 'Spain', flag: '🇪🇸', category: 'domestic', format: 'league' },
-  { code: 'BL1', name: 'Bundesliga', area: 'Germany', flag: '🇩🇪', category: 'domestic', format: 'league' },
-  { code: 'SA', name: 'Serie A', area: 'Italy', flag: '🇮🇹', category: 'domestic', format: 'league' },
-  { code: 'FL1', name: 'Ligue 1', area: 'France', flag: '🇫🇷', category: 'domestic', format: 'league' },
-  { code: 'EFL', name: 'EFL Cup', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'cup', format: 'knockout' },
-  { code: 'CL', name: 'UEFA Champions League', area: 'Europe', flag: '🇪🇺', category: 'europe', format: 'league' },
-  { code: 'UNL', name: 'UEFA Nations League', area: 'Europe', flag: '🌍', category: 'international', format: 'groups' },
+  { code: 'PL', name: 'Premier League', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'domestic', format: 'league', featured: true },
+  { code: 'ELC', name: 'Championship', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'domestic', format: 'league', featured: true },
+  { code: 'EL1', name: 'League One', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'domestic', format: 'league' },
+  { code: 'PD', name: 'La Liga', area: 'Spain', flag: '🇪🇸', category: 'domestic', format: 'league', featured: true },
+  { code: 'BL1', name: 'Bundesliga', area: 'Germany', flag: '🇩🇪', category: 'domestic', format: 'league', featured: true },
+  { code: 'SA', name: 'Serie A', area: 'Italy', flag: '🇮🇹', category: 'domestic', format: 'league', featured: true },
+  { code: 'FL1', name: 'Ligue 1', area: 'France', flag: '🇫🇷', category: 'domestic', format: 'league', featured: true },
+  { code: 'EFL', name: 'EFL Cup', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'cup', format: 'knockout', featured: true },
+  { code: 'CL', name: 'UEFA Champions League', area: 'Europe', flag: '🇪🇺', category: 'europe', format: 'league', featured: true },
+  { code: 'UNL', name: 'UEFA Nations League', area: 'Europe', flag: '🌍', category: 'international', format: 'groups', featured: true },
 ];
 
 const LEAGUE_TEAMS: Record<string, { idBase: number; nation: string; teams: TeamSeed[] }> = {
@@ -97,6 +99,42 @@ const LEAGUE_TEAMS: Record<string, { idBase: number; nation: string; teams: Team
       ['Pisa', 'Pisa', 'PIS', '#1d3c8f'], ['Cremonese', 'Cremonese', 'CRE', '#c8102e'],
     ],
   },
+  ELC: {
+    idBase: 601,
+    nation: 'England',
+    teams: [
+      ['Wrexham', 'Wrexham', 'WRX', '#c8102e'], ['Sheffield United', 'Sheffield Utd', 'SHU', '#ee2737'],
+      ['Leicester City', 'Leicester', 'LEI', '#003090'], ['Southampton', 'Southampton', 'SOU', '#d71920'],
+      ['Ipswich Town', 'Ipswich', 'IPS', '#0044a9'], ['Middlesbrough', 'Middlesbrough', 'MID', '#e11b22'],
+      ['Coventry City', 'Coventry', 'COV', '#59cbe8'], ['Norwich City', 'Norwich', 'NOR', '#00a650'],
+      ['Hull City', 'Hull', 'HUL', '#f5a12d'], ['Stoke City', 'Stoke', 'STK', '#e03a3e'],
+      ['Millwall', 'Millwall', 'MIL', '#001d5e'], ['Watford', 'Watford', 'WAT', '#fbee23'],
+      ['West Bromwich Albion', 'West Brom', 'WBA', '#122f67'], ['Bristol City', 'Bristol City', 'BRC', '#e21b23'],
+      ['Swansea City', 'Swansea', 'SWA', '#6b7280'], ['Preston North End', 'Preston', 'PNE', '#1e3a8a'],
+      ['Queens Park Rangers', 'QPR', 'QPR', '#1d5ba4'], ['Blackburn Rovers', 'Blackburn', 'BLB', '#009ee0'],
+      ['Derby County', 'Derby', 'DER', '#1f2937'], ['Portsmouth', 'Portsmouth', 'POR', '#001489'],
+      ['Sheffield Wednesday', 'Sheffield Wed', 'SHW', '#0e00f0'], ['Oxford United', 'Oxford', 'OXF', '#fff200'],
+      ['Charlton Athletic', 'Charlton', 'CHA', '#d4021d'], ['Birmingham City', 'Birmingham', 'BIR', '#0000ff'],
+    ],
+  },
+  EL1: {
+    idBase: 701,
+    nation: 'England',
+    teams: [
+      ['Bolton Wanderers', 'Bolton', 'BOL', '#263c7e'], ['Barnsley', 'Barnsley', 'BAR', '#d71920'],
+      ['Huddersfield Town', 'Huddersfield', 'HUD', '#0e63ad'], ['Stockport County', 'Stockport', 'STO', '#1b458f'],
+      ['Wigan Athletic', 'Wigan', 'WIG', '#1d59af'], ['Reading', 'Reading', 'REA', '#004494'],
+      ['Peterborough United', 'Peterborough', 'PET', '#0055a5'], ['Blackpool', 'Blackpool', 'BPL', '#f68712'],
+      ['Rotherham United', 'Rotherham', 'ROT', '#d71920'], ['Lincoln City', 'Lincoln', 'LIN', '#e2231a'],
+      ['Mansfield Town', 'Mansfield', 'MAN', '#f5a12d'], ['Wycombe Wanderers', 'Wycombe', 'WYC', '#6cb4e4'],
+      ['Leyton Orient', 'Leyton Orient', 'LEY', '#c8102e'], ['Exeter City', 'Exeter', 'EXE', '#d71920'],
+      ['Burton Albion', 'Burton', 'BRT', '#fdb913'], ['Northampton Town', "N'hampton", 'NTN', '#8b1d41'],
+      ['Stevenage', 'Stevenage', 'STE', '#e2231a'], ['Bristol Rovers', 'Bristol Rovers', 'BRR', '#1d4ed8'],
+      ['Cardiff City', 'Cardiff', 'CAR', '#0070b5'], ['Plymouth Argyle', 'Plymouth', 'PLY', '#00563f'],
+      ['Luton Town', 'Luton', 'LUT', '#f78f1e'], ['AFC Wimbledon', 'Wimbledon', 'WIM', '#1b3f8b'],
+      ['Doncaster Rovers', 'Doncaster', 'DON', '#e2231a'], ['Port Vale', 'Port Vale', 'PVA', '#6b7280'],
+    ],
+  },
   FL1: {
     idBase: 401,
     nation: 'France',
@@ -134,15 +172,6 @@ const EXTRA_CL: { area: string; team: TeamSeed }[] = [
   { area: 'Norway', team: ['Bodø/Glimt', 'Bodø/Glimt', 'BOD', '#fcd116'] },
 ];
 
-// EFL clubs outside the Premier League, for the cup draw.
-const EFL_CLUBS: TeamSeed[] = [
-  ['Wrexham', 'Wrexham', 'WRX', '#c8102e'], ['Sheffield United', 'Sheffield Utd', 'SHU', '#ee2737'],
-  ['Leicester City', 'Leicester', 'LEI', '#003090'], ['Southampton', 'Southampton', 'SOU', '#d71920'],
-  ['Ipswich Town', 'Ipswich', 'IPS', '#0044a9'], ['Middlesbrough', 'Middlesbrough', 'MID', '#e11b22'],
-  ['Coventry City', 'Coventry', 'COV', '#59cbe8'], ['Norwich City', 'Norwich', 'NOR', '#00a650'],
-  ['Hull City', 'Hull', 'HUL', '#f5a12d'], ['Stoke City', 'Stoke', 'STK', '#e03a3e'],
-  ['Millwall', 'Millwall', 'MIL', '#001d5e'], ['Watford', 'Watford', 'WAT', '#fbee23'],
-];
 
 const NATIONS: { group: string; team: TeamSeed }[] = [
   { group: 'Group A1', team: ['Spain', 'Spain', 'ESP', '#c60b1e'] },
@@ -252,13 +281,15 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
     const elapsed = (now.getTime() - kickoff.getTime()) / 60_000;
     let status: Match['status'] = 'SCHEDULED';
     let minute: number | undefined;
+    let statusText: string | undefined;
     if (elapsed >= 115) status = 'FINISHED';
     else if (elapsed >= 0) {
       status = 'LIVE';
-      minute = Math.min(90, Math.max(1, Math.round(elapsed > 45 && elapsed < 60 ? 45 : elapsed > 60 ? elapsed - 15 : elapsed)));
+      if (elapsed > 47 && elapsed < 62) statusText = 'HT';
+      else minute = Math.min(90, Math.max(1, Math.round(elapsed >= 62 ? elapsed - 17 : elapsed)));
     }
     const played = status !== 'SCHEDULED';
-    const share = status === 'LIVE' ? (minute ?? 0) / 90 : 1;
+    const share = status === 'LIVE' ? (minute ?? 45) / 90 : 1;
     const c = comp(code);
     return {
       id: matchId++,
@@ -266,6 +297,7 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
       utcDate: kickoff.toISOString(),
       status,
       minute,
+      statusText,
       matchday,
       stage,
       home: ref(home),
@@ -297,12 +329,6 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
     return t;
   });
 
-  const eflClubs = EFL_CLUBS.map(([name, shortName, tla, color], i) => {
-    const t: Team = { id: 601 + i, name, shortName, tla, color, area: 'England' };
-    teams.set(t.id, t);
-    return t;
-  });
-
   const matches: Match[] = [];
 
   // Domestic leagues: weekly rounds, five played, this weekend's round, then two more.
@@ -320,7 +346,7 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
   }
 
   // EFL Cup: third round already played (draws go to penalties), fourth round drawn.
-  const eflTeams = [...leagueTeams.get('PL')!, ...eflClubs];
+  const eflTeams = [...leagueTeams.get('PL')!, ...leagueTeams.get('ELC')!.slice(0, 12)];
   const drawOrder = [...eflTeams];
   for (let i = drawOrder.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
@@ -345,7 +371,8 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
   matches.push(...third);
 
   // Champions League league phase: 36 clubs, 8 matchdays, two played.
-  const clTeams = [...[...leagueTeams.values()].flatMap((l) => l.slice(0, 4)), ...extraClubs];
+  const topFlights = ['PL', 'PD', 'BL1', 'SA', 'FL1'];
+  const clTeams = [...topFlights.flatMap((code) => leagueTeams.get(code)!.slice(0, 4)), ...extraClubs];
   const clDays = [-19, -5, 9, 23, 37, 51, 65, 79];
   roundRobin(clTeams)
     .slice(0, 8)
@@ -459,7 +486,7 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
     competition: comp('EFL'),
     season,
     teams: eflTeams,
-    players: leagueTeams.get('PL')!.flatMap((t) => clubPlayers.get(t.id)!),
+    players: eflTeams.flatMap((t) => clubPlayers.get(t.id)!),
     matches: third,
     standings: [],
   });
@@ -492,7 +519,8 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
     const to = pick(clubs.filter((t) => t.id !== from.id));
     const type = pick(types);
     const date = new Date(today);
-    date.setUTCDate(date.getUTCDate() - Math.floor(rand() * 90) + (type === 'rumour' ? 30 : 0));
+    // Completed moves over the last three months; rumours are recent.
+    date.setUTCDate(date.getUTCDate() - Math.floor(rand() * (type === 'rumour' ? 21 : 90)));
     transfers.push({
       id: `t${i}`,
       playerName: player.name,
@@ -585,7 +613,18 @@ const getWorld = () => (world ??= buildDemoWorld());
 
 export const demoProvider: DataProvider = {
   id: 'demo',
-  competitions: COMPETITIONS,
+
+  async listCompetitions() {
+    return COMPETITIONS;
+  },
+
+  async searchTeams(query) {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return [...getWorld().teams.values()]
+      .filter((t) => t.name.toLowerCase().includes(q) || t.shortName.toLowerCase().includes(q))
+      .slice(0, 30);
+  },
 
   async loadCompetition(code) {
     const d = getWorld().data.get(code);
@@ -621,8 +660,9 @@ export const demoProvider: DataProvider = {
 
 export const demoNews: NewsProvider = {
   id: 'demo',
-  async load(teams) {
-    const all = buildDemoNews(getWorld());
+  async load(teams, topic) {
+    let all = buildDemoNews(getWorld());
+    if (topic === 'transfers') all = all.filter((n) => n.id.startsWith('t'));
     if (!teams?.length) return all;
     const ids = new Set(teams.map((t) => t.id));
     return all.filter((n) => n.teamIds?.some((id) => ids.has(id)));
