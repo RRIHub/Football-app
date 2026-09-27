@@ -1,4 +1,5 @@
-import { useApp } from './state/AppContext';
+import { useAuth } from './auth/AuthContext';
+import { dataAttribution, useApp } from './state/AppContext';
 import { href, useRoute, type Route } from './state/router';
 import { HomePage } from './pages/HomePage';
 import { ScoresPage } from './pages/ScoresPage';
@@ -10,9 +11,10 @@ import { PlayerPage } from './pages/PlayerPage';
 import { BuildTeamPage } from './pages/BuildTeamPage';
 import { TransfersPage } from './pages/TransfersPage';
 import { NewsPage } from './pages/NewsPage';
+import { FavouritesPicker } from './pages/FavouritesPicker';
 
 const NAV: { label: string; href: string; match: Route['page'][] }[] = [
-  { label: 'My FootIQ', href: href.home, match: ['home'] },
+  { label: 'My FootIQ', href: href.home, match: ['home', 'favourites'] },
   { label: 'Scores', href: href.scores, match: ['scores'] },
   { label: 'News', href: href.news, match: ['news'] },
   { label: 'Leagues', href: href.leagues, match: ['leagues', 'league', 'team'] },
@@ -41,6 +43,8 @@ function Page({ route }: { route: Route }) {
       return <TransfersPage />;
     case 'news':
       return <NewsPage />;
+    case 'favourites':
+      return <FavouritesPicker onDone={() => (location.hash = href.home)} />;
     default:
       return <HomePage />;
   }
@@ -49,6 +53,19 @@ function Page({ route }: { route: Route }) {
 export function App() {
   const route = useRoute();
   const { source } = useApp();
+  const { user, signOut, finishOnboarding } = useAuth();
+
+  // New accounts pick their favourite clubs and players first.
+  if (user && !user.onboarded)
+    return (
+      <main className="container onboarding">
+        <h1 className="brand">
+          Foot<span>IQ</span>
+        </h1>
+        <FavouritesPicker welcomeName={user.name} onDone={finishOnboarding} />
+      </main>
+    );
+
   return (
     <>
       <header className="topbar">
@@ -56,6 +73,17 @@ export function App() {
           <a href={href.home} className="brand">
             Foot<span>IQ</span>
           </a>
+          <div className="user-menu">
+            <a href={href.favourites} className="muted small">
+              Edit favourites
+            </a>
+            <span className="avatar" title={user?.email} aria-hidden>
+              {user?.name.charAt(0).toUpperCase()}
+            </span>
+            <button className="btn ghost small-btn" onClick={signOut}>
+              Sign out
+            </button>
+          </div>
         </div>
         <nav className="nav">
           {NAV.map((n) => (
@@ -67,8 +95,8 @@ export function App() {
       </header>
       {source === 'demo' && (
         <div className="demo-banner">
-          Demo mode: fictional players and sample results. Add a free API key to get real players, live scores and
-          news (see README).
+          Demo mode: fictional players and sample results. Add a data key to get real players, live scores and news
+          (see README).
         </div>
       )}
       <main className="container">
@@ -76,11 +104,11 @@ export function App() {
       </main>
       <footer className="footer muted">
         FootIQ
-        {source === 'live' && (
+        {dataAttribution && (
           <>
             {' · '}Data provided by{' '}
-            <a href="https://www.football-data.org" target="_blank" rel="noreferrer">
-              football-data.org
+            <a href={dataAttribution.url} target="_blank" rel="noreferrer">
+              {dataAttribution.label}
             </a>
           </>
         )}

@@ -13,13 +13,13 @@ import type {
   TeamRef,
 } from './types';
 import { estimatePrice } from './pricing';
+import { createClient, LIVE_REFRESH_MS, MIN } from './http';
 
 // Licensed data from football-data.org (https://www.football-data.org).
 // Requests go through the dev/preview proxy at /api, which adds the API key
 // server-side (see vite.config.ts). Free tier: 10 requests/minute.
 
 declare const __COMPETITIONS__: string;
-declare const __LIVE_REFRESH_SECONDS__: number;
 
 const CATALOGUE: Record<string, Omit<Competition, 'code' | 'emblem'>> = {
   PL: { name: 'Premier League', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'domestic', format: 'league' },
@@ -47,57 +47,13 @@ function configuredCompetitions(): Competition[] {
   const codes = raw ? raw.split(',').map((c) => c.trim().toUpperCase()).filter(Boolean) : DEFAULT_CODES;
   return codes.map((code) => ({
     code,
+    featured: true,
     ...(CATALOGUE[code] ?? { name: code, area: '', category: 'domestic' as CompetitionCategory, format: 'league' as const }),
   }));
 }
 
-/* ---------- request throttling + caching ---------- */
-
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 10;
-const sent: number[] = [];
-let queue: Promise<unknown> = Promise.resolve();
-
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/** Serialises requests so we never exceed the free-tier rate limit. */
-function throttled<T>(fn: () => Promise<T>): Promise<T> {
-  const run = queue.then(async () => {
-    const now = Date.now();
-    while (sent.length && now - sent[0] > WINDOW_MS) sent.shift();
-    if (sent.length >= MAX_PER_WINDOW) await wait(WINDOW_MS - (now - sent[0]) + 50);
-    sent.push(Date.now());
-    return fn();
-  });
-  queue = run.catch(() => undefined);
-  return run;
-}
-
-const cache = new Map<string, { at: number; value: Promise<unknown> }>();
-
-async function get<T>(path: string, ttlMs: number): Promise<T> {
-  const hit = cache.get(path);
-  if (hit && Date.now() - hit.at < ttlMs) return hit.value as Promise<T>;
-  const value = throttled(async () => {
-    const res = await fetch(`/api${path}`);
-    if (res.status === 429) throw new Error('Rate limit reached – try again in a minute.');
-    if (res.status === 403) throw new Error('This competition is not included in your data plan.');
-    if (!res.ok) throw new Error(`Data request failed (${res.status})`);
-    return res.json() as Promise<T>;
-  });
-  cache.set(path, { at: Date.now(), value });
-  value.catch(() => cache.delete(path));
-  return value;
-}
-
-const MIN = 60_000;
-
-/**
- * How often live scores are re-fetched. Each refresh is one request, and the
- * free tier allows 10 a minute shared with everything else, so default to 20s.
- */
-export const LIVE_REFRESH_MS =
-  Math.max(5, typeof __LIVE_REFRESH_SECONDS__ === 'number' ? __LIVE_REFRESH_SECONDS__ : 20) * 1000;
+const client = createClient({ base: '/api', maxPerMinute: 10 });
+const get = client.get;
 
 /* ---------- response shapes (subset of football-data.org v4) ---------- */
 
@@ -227,6 +183,7 @@ function mapMatch(m: ApiMatch, fallback?: { code: string; name: string }): Match
     utcDate: m.utcDate,
     status: mapStatus(m.status),
     minute: Number.isFinite(minute) ? minute : undefined,
+    statusText: m.status === 'PAUSED' ? 'HT' : undefined,
     matchday: m.matchday ?? undefined,
     stage: prettyStage(m.group ?? (m.stage === 'REGULAR_SEASON' ? null : m.stage)),
     home: teamRef(m.homeTeam),
@@ -276,8 +233,24 @@ function makePlayer(
 const competitions = configuredCompetitions();
 
 export const liveProvider: DataProvider = {
-  id: 'live',
-  competitions,
+  id: 'football-data',
+  attribution: { label: 'football-data.org', url: 'https://www.football-data.org' },
+
+  async listCompetitions() {
+    return competitions;
+  },
+
+  async searchTeams(query) {
+    // No search endpoint: look through the (cached) team lists of each competition.
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const lists = await Promise.allSettled(competitions.map((c) => this.loadCompetition(c.code)));
+    const seen = new Set<number>();
+    return lists
+      .flatMap((r) => (r.status === 'fulfilled' ? r.value.teams : []))
+      .filter((t) => (t.name.toLowerCase().includes(q) || t.shortName.toLowerCase().includes(q)) && !seen.has(t.id) && seen.add(t.id))
+      .slice(0, 30);
+  },
 
   async loadCompetition(code): Promise<CompetitionData> {
     const competition = competitions.find((c) => c.code === code);
@@ -351,11 +324,14 @@ export const liveProvider: DataProvider = {
 
   async loadMatches(from, to) {
     // The /matches endpoint covers every competition in the plan in one request.
+    // Dates are UTC, so ask for the UTC days that cover the local range, then trim.
     const { matches } = await get<{ matches: ApiMatch[] }>(
       `/matches?dateFrom=${isoDate(from)}&dateTo=${isoDate(to)}`,
       LIVE_REFRESH_MS - 1000,
     );
-    return matches.map((m) => mapMatch(m));
+    return matches
+      .map((m) => mapMatch(m))
+      .filter((m) => Date.parse(m.utcDate) >= from.getTime() && Date.parse(m.utcDate) <= to.getTime());
   },
 
   async loadTeam(id): Promise<TeamData> {

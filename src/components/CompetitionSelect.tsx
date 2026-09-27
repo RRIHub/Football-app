@@ -4,7 +4,7 @@ import { useApp } from '../state/AppContext';
 const GROUP_LABEL: Record<CompetitionCategory, string> = {
   domestic: 'Leagues',
   cup: 'Domestic cups',
-  europe: 'European',
+  europe: 'Continental',
   international: 'International',
 };
 
@@ -21,7 +21,10 @@ export function CompetitionSelect({
   /** Restrict to these categories. */
   only?: CompetitionCategory[];
 }) {
-  const { competitions } = useApp();
+  const { competitions: all } = useApp();
+  // Keep the list short: featured competitions plus whatever is selected. The
+  // Leagues page's country browser reaches everything else.
+  const competitions = all.filter((c) => c.featured || c.code === value);
   const cats = (only ?? (['domestic', 'cup', 'europe', 'international'] as CompetitionCategory[])).filter((cat) =>
     competitions.some((c) => c.category === cat),
   );

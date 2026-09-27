@@ -7,11 +7,11 @@ import { TeamBadge } from './TeamBadge';
 function statusLabel(m: Match): string {
   switch (m.status) {
     case 'LIVE':
-      return m.minute ? `${m.minute}'` : 'LIVE';
+      return m.statusText ?? (m.minute ? `${m.minute}'` : 'LIVE');
     case 'FINISHED':
-      return 'FT';
+      return m.statusText ?? 'FT';
     case 'POSTPONED':
-      return 'PP';
+      return m.statusText ?? 'PP';
     default:
       return new Date(m.utcDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
@@ -92,32 +92,52 @@ export function MatchList({
   );
 }
 
-/** Matches grouped by competition, in the order competitions are listed. */
+/**
+ * Matches grouped by competition, in the order competitions are listed.
+ * Featured competitions, live games and your teams' games start open; the
+ * rest are collapsed so a busy day across hundreds of leagues stays readable.
+ */
 export function MatchesByCompetition({ matches, empty }: { matches: Match[]; empty: string }) {
-  const { competitions } = useApp();
+  const { competitions, competition, followedTeams } = useApp();
   if (!matches.length) return <p className="muted">{empty}</p>;
-  const order = (code: string) => {
-    const i = competitions.findIndex((c) => c.code === code);
-    return i === -1 ? competitions.length : i;
-  };
+  const index = new Map(competitions.map((c, i) => [c.code, i]));
+  const order = (code: string) => index.get(code) ?? competitions.length;
   const groups = groupBy(matches, (m) => m.competition.code).sort(([a], [b]) => order(a) - order(b));
+  const collapseRest = groups.length > 8;
   return (
     <>
-      {groups.map(([code, ms]) => (
-        <section key={code} className="comp-group">
-          <h3 className="comp-title">
-            <LeagueTag competition={ms[0].competition} />
-            <a className="muted small" href={href.league(code)}>
-              Table ›
-            </a>
-          </h3>
-          <div className="match-grid">
-            {ms.map((m) => (
-              <MatchCard key={m.id} match={m} />
-            ))}
-          </div>
-        </section>
-      ))}
+      {groups.map(([code, ms]) => {
+        const c = competition(code);
+        const open =
+          !collapseRest ||
+          c?.featured ||
+          ms.some((m) => m.status === 'LIVE' || followedTeams.isFollowing(m.home.id) || followedTeams.isFollowing(m.away.id));
+        const liveCount = ms.filter((m) => m.status === 'LIVE').length;
+        return (
+          <details key={code} className="comp-group" open={open}>
+            <summary className="comp-title">
+              <span className="row gap-sm">
+                <LeagueTag competition={ms[0].competition} />
+                {c && c.area && c.category !== 'europe' && c.category !== 'international' && (
+                  <span className="muted small">{c.area}</span>
+                )}
+              </span>
+              <span className="row gap-sm">
+                {liveCount > 0 && <span className="live-count">{liveCount} live</span>}
+                <span className="muted small">{ms.length}</span>
+                <a className="muted small" href={href.league(code)} onClick={(e) => e.stopPropagation()}>
+                  Table ›
+                </a>
+              </span>
+            </summary>
+            <div className="match-grid">
+              {ms.map((m) => (
+                <MatchCard key={m.id} match={m} />
+              ))}
+            </div>
+          </details>
+        );
+      })}
     </>
   );
 }

@@ -20,7 +20,7 @@ const GROUPS: [Position, string][] = [
 export function TeamPage({ id }: { id: number }) {
   const { followedTeams, followedPlayers } = useApp();
   const res = useTeam(id);
-  const transfers = useTransfers();
+  const transfers = useTransfers([id]);
   const league = res.data?.team.league;
   const leagueData = useCompetition(league?.code);
   const teamNews = useNews(res.data ? [res.data.team] : []);

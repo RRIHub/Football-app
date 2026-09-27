@@ -37,9 +37,17 @@ describe('guardian news', () => {
     const url = new URL(fetch.mock.calls[0][0], 'http://x');
     expect(url.pathname).toBe('/news-api/search');
     expect(url.searchParams.get('section')).toBe('football');
-    expect(url.searchParams.get('q')).toBe('"Arsenal"');
+    expect(url.searchParams.get('q')).toBe('("Arsenal")');
     expect(url.searchParams.has('api-key')).toBe(false);
     expect(items[0]).toMatchObject({ title: 'Arsenal win again', summary: 'Report', source: 'The Guardian' });
+  });
+
+  it('asks for transfer stories when rumours are wanted', async () => {
+    const fetch = vi.fn(async (_url: string) => ({ ok: true, status: 200, json: async () => ({ response: { results: [] } }) }));
+    vi.stubGlobal('fetch', fetch);
+    await guardianNews.load([{ id: 1, name: 'Arsenal' }], 'transfers');
+    const q = new URL(fetch.mock.calls[0][0], 'http://x').searchParams.get('q');
+    expect(q).toBe('("Arsenal") AND (transfer OR signing OR loan)');
   });
 });
 

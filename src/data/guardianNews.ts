@@ -34,14 +34,17 @@ export const guardianNews: NewsProvider = {
   id: 'guardian',
   attribution: { label: 'The Guardian', url: 'https://www.theguardian.com/football' },
 
-  async load(teams) {
+  async load(teams, topic) {
     const params = new URLSearchParams({
       section: 'football',
       'order-by': 'newest',
       'page-size': '30',
       'show-fields': 'trailText,thumbnail',
     });
-    if (teams?.length) params.set('q', teamQuery(teams));
+    const terms = [teams?.length ? `(${teamQuery(teams)})` : '', topic === 'transfers' ? '(transfer OR signing OR loan)' : '']
+      .filter(Boolean)
+      .join(' AND ');
+    if (terms) params.set('q', terms);
     const res = await fetch(`/news-api/search?${params}`);
     if (!res.ok) throw new Error(`News request failed (${res.status})`);
     const body = (await res.json()) as { response: { results: GuardianResult[] } };

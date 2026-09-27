@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { CompetitionSelect } from '../components/CompetitionSelect';
 import { MatchesByCompetition } from '../components/MatchCard';
 import { ErrorBox, Loading } from '../components/Status';
-import { useApp, useMatchWindow } from '../state/AppContext';
+import { useApp, useMatchesOnDay } from '../state/AppContext';
 import { usePersistentState } from '../state/storage';
 
 const DAYS_BACK = 3;
@@ -17,12 +17,12 @@ function dayLabel(offset: number, date: Date): string {
 
 export function ScoresPage() {
   const { followedTeams } = useApp();
-  const res = useMatchWindow(DAYS_BACK, DAYS_AHEAD);
   const [offset, setOffset] = useState(0);
   const [liveOnly, setLiveOnly] = useState(false);
   const [mine, setMine] = useState(false);
   const [code, setCode] = usePersistentState('footiq.scoresCompetition', 'ALL');
-
+  // Live games are always today's.
+  const res = useMatchesOnDay(liveOnly ? 0 : offset);
   const hasLive = res.data?.some((m) => m.status === 'LIVE') ?? false;
 
   const days = useMemo(
@@ -35,10 +35,9 @@ export function ScoresPage() {
       }),
     [],
   );
-  const selectedDay = days.find((d) => d.offset === offset)!.date.toDateString();
 
   const matches = (res.data ?? [])
-    .filter((m) => (liveOnly ? m.status === 'LIVE' : new Date(m.utcDate).toDateString() === selectedDay))
+    .filter((m) => !liveOnly || m.status === 'LIVE')
     .filter((m) => code === 'ALL' || m.competition.code === code)
     .filter((m) => !mine || followedTeams.isFollowing(m.home.id) || followedTeams.isFollowing(m.away.id))
     .sort((a, b) => a.utcDate.localeCompare(b.utcDate));
@@ -46,6 +45,9 @@ export function ScoresPage() {
   return (
     <section className="panel">
       <h2>Scores &amp; fixtures</h2>
+      <p className="muted small tz-note">
+        Kick-off times in your time zone ({Intl.DateTimeFormat().resolvedOptions().timeZone}).
+      </p>
       <div className="day-strip" role="tablist">
         {days.map((d) => (
           <button

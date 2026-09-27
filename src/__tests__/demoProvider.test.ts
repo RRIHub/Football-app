@@ -25,6 +25,22 @@ describe('demo world', () => {
     }
   });
 
+  it('includes lower divisions with their own tables and squads', () => {
+    const elc = world.data.get('ELC')!;
+    const l1 = world.data.get('EL1')!;
+    expect(elc.teams).toHaveLength(24);
+    expect(l1.teams).toHaveLength(24);
+    expect(l1.standings[0].rows).toHaveLength(24);
+    expect(l1.players.length).toBe(24 * 15);
+    expect(l1.teams.every((t) => t.league?.name === 'League One')).toBe(true);
+  });
+
+  it('shows half-time rather than a frozen minute during the break', () => {
+    const ht = buildDemoWorld(new Date('2026-09-27T14:52:00Z')).matches.filter((m) => m.statusText === 'HT');
+    expect(ht.length).toBeGreaterThan(0);
+    expect(ht.every((m) => m.status === 'LIVE' && m.minute === undefined)).toBe(true);
+  });
+
   it('plays Champions League clubs from several leagues', () => {
     const cl = world.data.get('CL')!;
     expect(cl.teams).toHaveLength(36);
@@ -57,5 +73,13 @@ describe('demo world', () => {
       (a, b) => a + b,
     );
     expect(total).toBeLessThan(BUDGET);
+  });
+});
+
+describe('demo transfers', () => {
+  it('never dates a transfer or rumour in the future', () => {
+    const now = new Date('2026-09-27T15:00:00Z');
+    const w = buildDemoWorld(now);
+    expect(w.transfers.every((t) => Date.parse(t.date) <= now.getTime())).toBe(true);
   });
 });
