@@ -81,37 +81,73 @@ export function LeaguePage({ code }: { code: string }) {
   );
 }
 
+type MatchView = 'round' | 'all' | 'results' | 'fixtures';
+
 function Matchdays({ data }: { data: CompetitionData }) {
+  const [view, setView] = useState<MatchView>('round');
+  const sorted = useMemo(() => [...data.matches].sort((a, b) => a.utcDate.localeCompare(b.utcDate)), [data.matches]);
   const rounds = useMemo(() => {
     const byRound = new Map<string, CompetitionData['matches']>();
-    for (const m of [...data.matches].sort((a, b) => a.utcDate.localeCompare(b.utcDate))) {
+    for (const m of sorted) {
       const key = m.matchday ? `Matchday ${m.matchday}` : (m.stage ?? 'Matches');
       byRound.set(key, [...(byRound.get(key) ?? []), m]);
     }
     return [...byRound];
-  }, [data.matches]);
+  }, [sorted]);
   // Start on the first round that isn't finished yet, or the last one if all are.
   const open = rounds.findIndex(([, ms]) => ms.some((m) => m.status !== 'FINISHED'));
   const [index, setIndex] = useState(open === -1 ? Math.max(0, rounds.length - 1) : open);
   if (!rounds.length) return <p className="muted">No fixtures published yet.</p>;
-  const [label, matches] = rounds[Math.min(index, rounds.length - 1)];
+  const matches = rounds[Math.min(index, rounds.length - 1)][1];
+
+  const results = sorted.filter((m) => m.status === 'FINISHED').reverse();
+  const fixtures = sorted.filter((m) => m.status !== 'FINISHED');
+  const VIEWS: [MatchView, string][] = [
+    ['round', 'By round'],
+    ['all', `All matches (${sorted.length})`],
+    ['results', `Results (${results.length})`],
+    ['fixtures', `Fixtures (${fixtures.length})`],
+  ];
+
   return (
     <>
-      <div className="round-nav">
-        <button className="btn ghost" disabled={index === 0} onClick={() => setIndex((i) => i - 1)} aria-label="Previous">
-          ‹
-        </button>
-        <span className="strong">{label}</span>
-        <button
-          className="btn ghost"
-          disabled={index >= rounds.length - 1}
-          onClick={() => setIndex((i) => i + 1)}
-          aria-label="Next"
-        >
-          ›
-        </button>
+      <div className="filters">
+        {VIEWS.map(([key, text]) => (
+          <button key={key} className={`pill ${view === key ? 'active' : ''}`} onClick={() => setView(key)}>
+            {text}
+          </button>
+        ))}
       </div>
-      <MatchList matches={matches} />
+      {view === 'round' ? (
+        <>
+          <div className="round-nav">
+            <button className="btn ghost" disabled={index === 0} onClick={() => setIndex((i) => i - 1)} aria-label="Previous">
+              ‹
+            </button>
+            <select className="input round-select" aria-label="Round" value={index} onChange={(e) => setIndex(Number(e.target.value))}>
+              {rounds.map(([name], i) => (
+                <option key={name} value={i}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <button
+              className="btn ghost"
+              disabled={index >= rounds.length - 1}
+              onClick={() => setIndex((i) => i + 1)}
+              aria-label="Next"
+            >
+              ›
+            </button>
+          </div>
+          <MatchList matches={matches} />
+        </>
+      ) : (
+        <MatchList
+          matches={view === 'all' ? sorted : view === 'results' ? results : fixtures}
+          empty={view === 'results' ? 'No results yet.' : 'No fixtures left.'}
+        />
+      )}
     </>
   );
 }

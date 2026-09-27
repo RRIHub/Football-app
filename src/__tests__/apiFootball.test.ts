@@ -149,3 +149,44 @@ describe('API-Football provider', () => {
     ]);
   });
 });
+
+describe('API-Football team pages', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("load the whole season's matches in every competition", async () => {
+    const f = (id: number, league: number, name: string, date: string, short = 'FT') =>
+      fixture({
+        fixture: { id, date, status: { short, elapsed: short === 'FT' ? 90 : null } },
+        league: { id: league, name, round: 'Regular Season - 1' },
+      });
+    const league = (id: number, name: string, type: 'League' | 'Cup') => ({
+      league: { id, name, type, logo: '' },
+      country: { name: 'England', code: 'GB', flag: null },
+      seasons: [{ year: 2026, current: true, start: '2026-08-15', end: '2027-05-23' }],
+    });
+    const byPath: Record<string, unknown> = {
+      '/teams?id=42': [{ team: ars }],
+      '/players/squads?team=42': [],
+      '/leagues?current=true': [league(39, 'Premier League', 'League'), league(48, 'League Cup', 'Cup')],
+    };
+    const fetch = vi.fn(async (url: string) => {
+      const path = new URL(url, 'http://x').searchParams.get('path')!;
+      const p = new URL(path, 'http://x');
+      let response: unknown = byPath[p.pathname + p.search.replace(/&timezone=[^&]*/, '')];
+      if (p.pathname === '/fixtures' && p.searchParams.get('last')) response = [f(1, 39, 'Premier League', '2026-09-20T14:00:00Z')];
+      if (p.pathname === '/fixtures' && p.searchParams.get('next')) response = [f(2, 39, 'Premier League', '2026-10-04T14:00:00Z', 'NS')];
+      if (p.pathname === '/fixtures' && p.searchParams.get('season') === '2026')
+        response = [
+          f(3, 48, 'League Cup', '2026-08-27T18:45:00Z'),
+          f(1, 39, 'Premier League', '2026-09-20T14:00:00Z'),
+          f(4, 39, 'Premier League', '2027-05-23T15:00:00Z', 'NS'),
+        ];
+      return { ok: true, status: 200, json: async () => ({ errors: [], response: response ?? [] }) } as Response;
+    });
+    vi.stubGlobal('fetch', fetch);
+    const team = await apiFootballProvider.loadTeam(42);
+    expect(team.matches.map((m) => m.id)).toEqual([3, 1, 2, 4]);
+    expect(team.team.league).toEqual({ code: '39', name: 'Premier League' });
+    expect(team.competitions.map((c) => c.name).sort()).toEqual(['League Cup', 'Premier League']);
+  });
+});

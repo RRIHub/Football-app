@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
+import { dateForOffset, offsetFromInput, toInputValue } from '../state/dates';
 import { CompetitionSelect } from '../components/CompetitionSelect';
 import { MatchesByCompetition } from '../components/MatchCard';
 import { ErrorBox, Loading } from '../components/Status';
 import { useApp, useMatchesOnDay } from '../state/AppContext';
 import { usePersistentState } from '../state/storage';
 
-const DAYS_BACK = 3;
-const DAYS_AHEAD = 6;
+/** Days shown either side of the selected day in the strip. */
+const STRIP_SPAN = 3;
 
 function dayLabel(offset: number, date: Date): string {
   if (offset === 0) return 'Today';
@@ -20,22 +21,26 @@ export function ScoresPage() {
   const [offset, setOffset] = useState(0);
   const [liveOnly, setLiveOnly] = useState(false);
   const [mine, setMine] = useState(false);
+  const [expandAll, setExpandAll] = useState(false);
   const [intl, setIntl] = useState(false);
   const [code, setCode] = usePersistentState('footiq.scoresCompetition', 'ALL');
   // Live games are always today's.
   const res = useMatchesOnDay(liveOnly ? 0 : offset);
   const hasLive = res.data?.some((m) => m.status === 'LIVE') ?? false;
 
+  // Any day can be shown; the strip follows the selected one.
   const days = useMemo(
     () =>
-      Array.from({ length: DAYS_BACK + DAYS_AHEAD + 1 }, (_, i) => {
-        const o = i - DAYS_BACK;
-        const d = new Date();
-        d.setDate(d.getDate() + o);
-        return { offset: o, date: d };
+      Array.from({ length: STRIP_SPAN * 2 + 1 }, (_, i) => {
+        const o = offset - STRIP_SPAN + i;
+        return { offset: o, date: dateForOffset(o) };
       }),
-    [],
+    [offset],
   );
+  const goTo = (o: number) => {
+    setOffset(o);
+    setLiveOnly(false);
+  };
 
   const matches = (res.data ?? [])
     .filter((m) => !liveOnly || m.status === 'LIVE')
@@ -50,6 +55,29 @@ export function ScoresPage() {
       <p className="muted small tz-note">
         Kick-off times in your time zone ({Intl.DateTimeFormat().resolvedOptions().timeZone}).
       </p>
+      <div className="date-nav">
+        <button className="btn ghost" aria-label="Previous day" onClick={() => goTo(offset - 1)}>
+          ‹
+        </button>
+        <input
+          className="input"
+          type="date"
+          aria-label="Choose a date"
+          value={toInputValue(dateForOffset(offset))}
+          onChange={(e) => {
+            const o = offsetFromInput(e.target.value);
+            if (o !== null) goTo(o);
+          }}
+        />
+        <button className="btn ghost" aria-label="Next day" onClick={() => goTo(offset + 1)}>
+          ›
+        </button>
+        {offset !== 0 && (
+          <button className="btn ghost" onClick={() => goTo(0)}>
+            Today
+          </button>
+        )}
+      </div>
       <div className="day-strip" role="tablist">
         {days.map((d) => (
           <button
@@ -57,10 +85,7 @@ export function ScoresPage() {
             role="tab"
             aria-selected={!liveOnly && offset === d.offset}
             className={`day-pill ${!liveOnly && offset === d.offset ? 'active' : ''}`}
-            onClick={() => {
-              setOffset(d.offset);
-              setLiveOnly(false);
-            }}
+            onClick={() => goTo(d.offset)}
           >
             {dayLabel(d.offset, d.date)}
           </button>
@@ -77,6 +102,9 @@ export function ScoresPage() {
           Internationals
         </button>
         <CompetitionSelect value={code} onChange={setCode} allLabel="All competitions" />
+        <button className="pill" onClick={() => setExpandAll((v) => !v)} aria-pressed={expandAll}>
+          {expandAll ? 'Collapse' : 'Expand all'}
+        </button>
       </div>
       {res.error && !res.data ? (
         <ErrorBox message={res.error} onRetry={res.reload} />
@@ -84,6 +112,8 @@ export function ScoresPage() {
         <Loading what="matches" />
       ) : (
         <MatchesByCompetition
+          key={String(expandAll)}
+          expandAll={expandAll}
           matches={matches}
           empty={
             liveOnly

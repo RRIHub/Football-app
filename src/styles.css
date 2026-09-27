@@ -294,3 +294,7 @@ details.comp-group:not([open]) > summary::before { transform: rotate(-90deg); }
 .splash-error { max-width: 480px; text-align: left; }
 .splash-error p + p { margin-top: 6px; }
 .login-warning { margin: 14px 0 0; padding: 8px 12px; border-radius: 10px; background: #2a2410; color: var(--gold); text-align: center; }
+.date-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.date-nav .btn { margin: 0; padding: 6px 12px; }
+.date-nav input[type='date'] { color-scheme: dark; }
+.round-select { font-weight: 700; min-width: 160px; text-align: center; }

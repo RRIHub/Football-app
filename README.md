@@ -6,10 +6,10 @@ Football scores, player stats, news and transfers for leagues and cups around th
 
 - **Accounts**: create an account or sign in. New accounts pick their favourite clubs (search any club, or browse by league), then favourite players from those clubs' squads. Change them anytime with **Edit favourites**.
 - **My FootIQ**: a personal feed with live matches, today's games, your teams' last result and next fixture in any competition, your players' stats, and transfer news involving them.
-- **Scores**: pick a day, then see matches grouped by competition. Filter by live games, "my teams", internationals or a single competition. Live scores refresh automatically (every 20 seconds by default).
+- **Scores**: pick any date (from the day strip, the arrows or a calendar), then see matches grouped by competition. Filter by live games, "my teams", internationals or a single competition, and use **Expand all** to open every competition. Live scores refresh automatically (every 20 seconds by default).
 - **News**: the latest football news, or only stories about the teams you follow. News also appears in your feed and on team pages.
-- **Leagues**: browse featured competitions, or every country's leagues and cups, including lower divisions. Each has a table (group tables for tournaments, knockout rounds for cups), matches by round, top scorers and assists, and a list of teams.
-- **Teams**: club and national team pages show the team's league, every competition it plays in, its league position and form, and results and fixtures labelled by competition. They also show the squad and transfers.
+- **Leagues**: browse featured competitions, or every country's leagues and cups, including lower divisions. Each has a table (group tables for tournaments, knockout rounds for cups), matches (by round, or every match, result or fixture of the season), top scorers and assists, and a list of teams.
+- **Teams**: club and national team pages show the team's league, every competition it plays in, its league position and form, and results and fixtures labelled by competition (the latest six, or every match of the season). They also show the squad and transfers.
 - **Players**: a searchable, sortable stats table for any league, filterable by position and club. Player pages show which league the stats come from.
 - **Build XI**: pick 11 players from any league in one of six formations within an £85m budget (max 3 per club). Choose a captain for double points and see your season points.
 - **Transfers**: confirmed signings, loans and free transfers for your clubs. Rumours come from news stories, each linked to its source.
@@ -22,7 +22,7 @@ npm install
 npm run dev
 ```
 
-Without an API key the app runs in **demo mode**, with generated fixtures and fictional players so you can try every feature. Demo mode includes the Premier League, Championship, League One, League Two, La Liga, LaLiga 2, Bundesliga, Serie A, Ligue 1, Ligue 2, MLS (with Eastern and Western Conference tables), the Saudi Pro League, the EFL Cup, and the Champions League, Europa League and Conference League. For international football it has the World Cup, Euros, Copa América, Africa Cup of Nations, Nations League and friendlies, with 54 national teams. The demo tournaments are labelled "Demo edition" because their results are invented. Demo players are fictional, and the demo news is written from demo results. Real players, scores and news need the API keys below.
+Without an API key the app runs in **demo mode**, with generated fixtures and fictional players so you can try every feature. Demo mode includes the Premier League, Championship, League One, League Two, La Liga, LaLiga 2, Bundesliga, Serie A, Ligue 1, Ligue 2, MLS (with Eastern and Western Conference tables), the Saudi Pro League, the EFL Cup, and the Champions League, Europa League and Conference League. For international football it has the World Cup, Euros, Copa América, Africa Cup of Nations, Nations League and friendlies, with 54 national teams. The demo tournaments are labelled "Demo edition" because their results are invented. Every demo league has a full home-and-away season. Demo players are fictional, and the demo news is written from demo results. Real players, scores and news need the API keys below.
 
 ### Where the data comes from
 
@@ -57,7 +57,7 @@ International football appears in its own section on the Leagues page and under 
 
 Kick-off times use each visitor's own time zone, and "today" means their local day. Live scores show the minute, stoppage time (e.g. 90+4'), half-time, extra time and penalty shoot-outs.
 
-Every country's leagues and cups load from one request (cached for a day), so the Leagues page can list them all. A competition's table, fixtures, teams and top scorers/assists load the first time you open it. A player's full stats load when you open their page.
+Every country's leagues and cups load from one request (cached for a day), so the Leagues page can list them all. A competition's table, fixtures, teams and top scorers/assists load the first time you open it. A player's full stats load when you open their page. A team page loads the team's whole season, in every competition it plays in.
 
 ### Live data: football-data.org
 
