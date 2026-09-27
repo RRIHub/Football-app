@@ -6,9 +6,9 @@ import type { Player } from '../data/types';
 const world = buildDemoWorld(new Date('2026-09-27T15:00:00Z'));
 
 describe('demo world', () => {
-  it('covers domestic leagues, a European competition and international matches', () => {
+  it('covers leagues, a cup, a European competition and international matches', () => {
     const cats = new Set(world.competitions.map((c) => c.category));
-    expect(cats).toEqual(new Set(['domestic', 'europe', 'international']));
+    expect(cats).toEqual(new Set(['domestic', 'cup', 'europe', 'international']));
     for (const c of world.competitions) expect(world.data.get(c.code)?.matches.length).toBeGreaterThan(0);
   });
 

@@ -19,6 +19,7 @@ import { estimatePrice } from './pricing';
 // server-side (see vite.config.ts). Free tier: 10 requests/minute.
 
 declare const __COMPETITIONS__: string;
+declare const __LIVE_REFRESH_SECONDS__: number;
 
 const CATALOGUE: Record<string, Omit<Competition, 'code' | 'emblem'>> = {
   PL: { name: 'Premier League', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'domestic', format: 'league' },
@@ -30,12 +31,16 @@ const CATALOGUE: Record<string, Omit<Competition, 'code' | 'emblem'>> = {
   DED: { name: 'Eredivisie', area: 'Netherlands', flag: '🇳🇱', category: 'domestic', format: 'league' },
   PPL: { name: 'Primeira Liga', area: 'Portugal', flag: '🇵🇹', category: 'domestic', format: 'league' },
   BSA: { name: 'Brasileirão Série A', area: 'Brazil', flag: '🇧🇷', category: 'domestic', format: 'league' },
+  // Paid plans only; enable via FOOTBALL_DATA_COMPETITIONS.
+  FAC: { name: 'FA Cup', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'cup', format: 'knockout' },
+  EL: { name: 'UEFA Europa League', area: 'Europe', flag: '🇪🇺', category: 'europe', format: 'league' },
   CL: { name: 'UEFA Champions League', area: 'Europe', flag: '🇪🇺', category: 'europe', format: 'league' },
   EC: { name: 'European Championship', area: 'Europe', flag: '🇪🇺', category: 'international', format: 'groups' },
   WC: { name: 'FIFA World Cup', area: 'World', flag: '🌍', category: 'international', format: 'groups' },
 };
 
-const DEFAULT_CODES = Object.keys(CATALOGUE);
+// Everything on football-data.org's free tier.
+const DEFAULT_CODES = ['PL', 'ELC', 'PD', 'BL1', 'SA', 'FL1', 'DED', 'PPL', 'BSA', 'CL', 'EC', 'WC'];
 
 function configuredCompetitions(): Competition[] {
   const raw = typeof __COMPETITIONS__ === 'string' && __COMPETITIONS__ ? __COMPETITIONS__ : '';
@@ -86,6 +91,13 @@ async function get<T>(path: string, ttlMs: number): Promise<T> {
 }
 
 const MIN = 60_000;
+
+/**
+ * How often live scores are re-fetched. Each refresh is one request, and the
+ * free tier allows 10 a minute shared with everything else, so default to 20s.
+ */
+export const LIVE_REFRESH_MS =
+  Math.max(5, typeof __LIVE_REFRESH_SECONDS__ === 'number' ? __LIVE_REFRESH_SECONDS__ : 20) * 1000;
 
 /* ---------- response shapes (subset of football-data.org v4) ---------- */
 
@@ -341,7 +353,7 @@ export const liveProvider: DataProvider = {
     // The /matches endpoint covers every competition in the plan in one request.
     const { matches } = await get<{ matches: ApiMatch[] }>(
       `/matches?dateFrom=${isoDate(from)}&dateTo=${isoDate(to)}`,
-      MIN,
+      LIVE_REFRESH_MS - 1000,
     );
     return matches.map((m) => mapMatch(m));
   },

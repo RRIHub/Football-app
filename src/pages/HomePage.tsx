@@ -3,6 +3,7 @@ import { CompetitionSelect } from '../components/CompetitionSelect';
 import { FollowButton } from '../components/FollowButton';
 import { LeagueTag } from '../components/LeagueTag';
 import { MatchCard, MatchesByCompetition } from '../components/MatchCard';
+import { NewsList } from '../components/NewsList';
 import { Stat } from '../components/Stat';
 import { ErrorBox, Loading } from '../components/Status';
 import { TeamBadge } from '../components/TeamBadge';
@@ -12,6 +13,7 @@ import {
   useApp,
   useCompetition,
   useMatchWindow,
+  useNews,
   useTeam,
   useTransfers,
   type FollowedPlayer,
@@ -23,8 +25,11 @@ export function HomePage() {
   const { followedTeams, followedPlayers } = useApp();
   const matchWindow = useMatchWindow();
   const transfers = useTransfers();
+  const newsFor = useNews(followedTeams.items.length ? followedTeams.items : undefined);
   const live = (matchWindow.data ?? []).filter((m) => m.status === 'LIVE');
   const nothingFollowed = !followedTeams.items.length && !followedPlayers.items.length;
+  // Keep the picker open after the first tap so several teams can be chosen at once.
+  const [onboarding, setOnboarding] = useState(nothingFollowed);
   const today = new Date().toDateString();
   const todays = (matchWindow.data ?? []).filter((m) => new Date(m.utcDate).toDateString() === today);
 
@@ -50,7 +55,7 @@ export function HomePage() {
         </section>
       )}
 
-      {nothingFollowed && <FollowPrompt />}
+      {(onboarding || nothingFollowed) && <FollowPrompt onDone={nothingFollowed ? undefined : () => setOnboarding(false)} />}
 
       {followedTeams.items.length > 0 && (
         <section className="panel">
@@ -73,6 +78,22 @@ export function HomePage() {
           </div>
         </section>
       )}
+
+      <section className="panel">
+        <h2 className="row between">
+          {followedTeams.items.length ? 'News for you' : 'Latest news'}
+          <a className="muted small" href={href.news}>
+            All news ›
+          </a>
+        </h2>
+        {newsFor.error && !newsFor.data ? (
+          <ErrorBox message={newsFor.error} onRetry={newsFor.reload} />
+        ) : !newsFor.data ? (
+          <Loading what="news" />
+        ) : (
+          <NewsList items={newsFor.data.slice(0, 5)} empty="No recent news about your teams." compact />
+        )}
+      </section>
 
       {!nothingFollowed && (
         <section className="panel">
@@ -106,7 +127,7 @@ export function HomePage() {
   );
 }
 
-function FollowPrompt() {
+function FollowPrompt({ onDone }: { onDone?: () => void }) {
   const { competitions, followedTeams } = useApp();
   const [code, setCode] = useState(competitions[0]?.code ?? '');
   const comp = useCompetition(code);
@@ -136,6 +157,11 @@ function FollowPrompt() {
             </button>
           ))}
         </div>
+      )}
+      {onDone && (
+        <button className="btn" onClick={onDone}>
+          Done ({followedTeams.items.length} followed)
+        </button>
       )}
     </section>
   );

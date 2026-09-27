@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CompetitionSelect } from '../components/CompetitionSelect';
 import { MatchesByCompetition } from '../components/MatchCard';
 import { ErrorBox, Loading } from '../components/Status';
@@ -24,12 +24,6 @@ export function ScoresPage() {
   const [code, setCode] = usePersistentState('footiq.scoresCompetition', 'ALL');
 
   const hasLive = res.data?.some((m) => m.status === 'LIVE') ?? false;
-  // Refresh every minute while games are in play.
-  useEffect(() => {
-    if (!hasLive) return;
-    const t = setInterval(res.reload, 60_000);
-    return () => clearInterval(t);
-  }, [hasLive, res.reload]);
 
   const days = useMemo(
     () =>

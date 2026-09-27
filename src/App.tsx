@@ -9,10 +9,12 @@ import { PlayersPage } from './pages/PlayersPage';
 import { PlayerPage } from './pages/PlayerPage';
 import { BuildTeamPage } from './pages/BuildTeamPage';
 import { TransfersPage } from './pages/TransfersPage';
+import { NewsPage } from './pages/NewsPage';
 
 const NAV: { label: string; href: string; match: Route['page'][] }[] = [
   { label: 'My FootIQ', href: href.home, match: ['home'] },
   { label: 'Scores', href: href.scores, match: ['scores'] },
+  { label: 'News', href: href.news, match: ['news'] },
   { label: 'Leagues', href: href.leagues, match: ['leagues', 'league', 'team'] },
   { label: 'Players', href: href.players, match: ['players', 'player'] },
   { label: 'Build XI', href: href.build, match: ['build'] },
@@ -37,6 +39,8 @@ function Page({ route }: { route: Route }) {
       return <BuildTeamPage />;
     case 'transfers':
       return <TransfersPage />;
+    case 'news':
+      return <NewsPage />;
     default:
       return <HomePage />;
   }
@@ -63,7 +67,8 @@ export function App() {
       </header>
       {source === 'demo' && (
         <div className="demo-banner">
-          Demo mode: sample fixtures and fictional players. Add an API key to see live data (see README).
+          Demo mode: fictional players and sample results. Add a free API key to get real players, live scores and
+          news (see README).
         </div>
       )}
       <main className="container">

@@ -14,7 +14,7 @@ export function LeaguePage({ code }: { code: string }) {
   const { competition } = useApp();
   const meta = competition(code);
   const res = useCompetition(meta ? code : null);
-  const [tab, setTab] = useState<Tab>('table');
+  const [tab, setTab] = useState<Tab>(meta?.format === 'knockout' ? 'matches' : 'table');
 
   if (!meta)
     return (
@@ -51,11 +51,13 @@ export function LeaguePage({ code }: { code: string }) {
           {(
             [
               ['table', meta.format === 'groups' ? 'Groups' : 'Table'],
-              ['matches', 'Matches'],
+              ['matches', meta.format === 'knockout' ? 'Rounds' : 'Matches'],
               ['stats', 'Top scorers'],
               ['teams', 'Teams'],
             ] as const
-          ).map(([key, label]) => (
+          )
+            .filter(([key]) => key !== 'table' || meta.format !== 'knockout')
+            .map(([key, label]) => (
             <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
               {label}
             </button>
@@ -117,7 +119,9 @@ function Matchdays({ data }: { data: CompetitionData }) {
 function TopScorers({ players, code }: { players: Player[]; code: string }) {
   const { followedPlayers } = useApp();
   const [by, setBy] = useState<'goals' | 'assists'>('goals');
-  const top = players
+  // Only count stats recorded in this competition (a club's league stats don't belong here).
+  const own = players.filter((p) => p.competition.code === code);
+  const top = own
     .filter((p) => p.stats[by] > 0)
     .sort((a, b) => b.stats[by] - a.stats[by] || a.stats.appearances - b.stats.appearances)
     .slice(0, 20);
@@ -131,7 +135,9 @@ function TopScorers({ players, code }: { players: Player[]; code: string }) {
           Assists
         </button>
       </div>
-      {!top.length ? (
+      {!own.length ? (
+        <p className="muted">Player stats aren't available for this competition.</p>
+      ) : !top.length ? (
         <p className="muted">No {by} recorded yet.</p>
       ) : (
         <ol className="leaderboard">

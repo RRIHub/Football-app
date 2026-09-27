@@ -1,12 +1,13 @@
 import { FollowButton } from '../components/FollowButton';
 import { LeagueTag } from '../components/LeagueTag';
 import { MatchList } from '../components/MatchCard';
+import { NewsList } from '../components/NewsList';
 import { ordinal, Stat } from '../components/Stat';
 import { ErrorBox, Loading } from '../components/Status';
 import { TeamBadge } from '../components/TeamBadge';
 import { NO_TRANSFER_FEED, TransferList } from '../components/TransferList';
 import type { Position } from '../data/types';
-import { followPlayer, followTeam, useApp, useCompetition, useTeam, useTransfers } from '../state/AppContext';
+import { followPlayer, followTeam, useApp, useCompetition, useNews, useTeam, useTransfers } from '../state/AppContext';
 import { href } from '../state/router';
 
 const GROUPS: [Position, string][] = [
@@ -22,6 +23,7 @@ export function TeamPage({ id }: { id: number }) {
   const transfers = useTransfers();
   const league = res.data?.team.league;
   const leagueData = useCompetition(league?.code);
+  const teamNews = useNews(res.data ? [res.data.team] : []);
 
   if (res.error && !res.data) return <ErrorBox message={res.error} onRetry={res.reload} />;
   if (!res.data || res.data.team.id !== id) return <Loading what="team" />;
@@ -101,6 +103,17 @@ export function TeamPage({ id }: { id: number }) {
           <MatchList matches={fixtures} empty="No upcoming fixtures." showCompetition />
         </section>
       </div>
+
+      <section className="panel">
+        <h2>Latest news</h2>
+        {teamNews.error && !teamNews.data ? (
+          <ErrorBox message={teamNews.error} onRetry={teamNews.reload} />
+        ) : !teamNews.data ? (
+          <Loading what="news" />
+        ) : (
+          <NewsList items={teamNews.data.slice(0, 6)} empty={`No recent news about ${team.name}.`} compact />
+        )}
+      </section>
 
       <section className="panel">
         <h2>Squad</h2>

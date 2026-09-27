@@ -9,7 +9,8 @@ export type Route =
   | { page: 'players' }
   | { page: 'player'; code: string; id: number }
   | { page: 'build' }
-  | { page: 'transfers' };
+  | { page: 'transfers' }
+  | { page: 'news' };
 
 export function parseHash(hash: string): Route {
   const [page, a, b] = hash.replace(/^#\/?/, '').split('/');
@@ -19,6 +20,7 @@ export function parseHash(hash: string): Route {
     case 'players':
     case 'build':
     case 'transfers':
+    case 'news':
       return { page };
     case 'league':
       return a ? { page, code: decodeURIComponent(a) } : { page: 'leagues' };
@@ -38,6 +40,7 @@ export const href = {
   players: '#/players',
   build: '#/build',
   transfers: '#/transfers',
+  news: '#/news',
   league: (code: string) => `#/league/${encodeURIComponent(code)}`,
   team: (id: number) => `#/team/${id}`,
   player: (code: string, id: number) => `#/player/${encodeURIComponent(code)}/${id}`,

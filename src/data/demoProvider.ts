@@ -3,6 +3,8 @@ import type {
   CompetitionData,
   DataProvider,
   Match,
+  NewsItem,
+  NewsProvider,
   Player,
   Position,
   StandingGroup,
@@ -26,6 +28,7 @@ const COMPETITIONS: Competition[] = [
   { code: 'BL1', name: 'Bundesliga', area: 'Germany', flag: '🇩🇪', category: 'domestic', format: 'league' },
   { code: 'SA', name: 'Serie A', area: 'Italy', flag: '🇮🇹', category: 'domestic', format: 'league' },
   { code: 'FL1', name: 'Ligue 1', area: 'France', flag: '🇫🇷', category: 'domestic', format: 'league' },
+  { code: 'EFL', name: 'EFL Cup', area: 'England', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', category: 'cup', format: 'knockout' },
   { code: 'CL', name: 'UEFA Champions League', area: 'Europe', flag: '🇪🇺', category: 'europe', format: 'league' },
   { code: 'UNL', name: 'UEFA Nations League', area: 'Europe', flag: '🌍', category: 'international', format: 'groups' },
 ];
@@ -129,6 +132,16 @@ const EXTRA_CL: { area: string; team: TeamSeed }[] = [
   { area: 'Greece', team: ['Olympiacos', 'Olympiacos', 'OLY', '#d71920'] },
   { area: 'Denmark', team: ['FC København', 'København', 'FCK', '#1e3a8a'] },
   { area: 'Norway', team: ['Bodø/Glimt', 'Bodø/Glimt', 'BOD', '#fcd116'] },
+];
+
+// EFL clubs outside the Premier League, for the cup draw.
+const EFL_CLUBS: TeamSeed[] = [
+  ['Wrexham', 'Wrexham', 'WRX', '#c8102e'], ['Sheffield United', 'Sheffield Utd', 'SHU', '#ee2737'],
+  ['Leicester City', 'Leicester', 'LEI', '#003090'], ['Southampton', 'Southampton', 'SOU', '#d71920'],
+  ['Ipswich Town', 'Ipswich', 'IPS', '#0044a9'], ['Middlesbrough', 'Middlesbrough', 'MID', '#e11b22'],
+  ['Coventry City', 'Coventry', 'COV', '#59cbe8'], ['Norwich City', 'Norwich', 'NOR', '#00a650'],
+  ['Hull City', 'Hull', 'HUL', '#f5a12d'], ['Stoke City', 'Stoke', 'STK', '#e03a3e'],
+  ['Millwall', 'Millwall', 'MIL', '#001d5e'], ['Watford', 'Watford', 'WAT', '#fbee23'],
 ];
 
 const NATIONS: { group: string; team: TeamSeed }[] = [
@@ -235,7 +248,7 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
     return r < 0.25 ? 0 : r < 0.6 ? 1 : r < 0.85 ? 2 : r < 0.96 ? 3 : 4;
   };
   /** Builds a match; kick-offs in the past are finished, and ones under way are live. */
-  const makeMatch = (code: string, home: Team, away: Team, kickoff: Date, matchday: number, stage?: string): Match => {
+  const makeMatch = (code: string, home: Team, away: Team, kickoff: Date, matchday: number | undefined, stage?: string): Match => {
     const elapsed = (now.getTime() - kickoff.getTime()) / 60_000;
     let status: Match['status'] = 'SCHEDULED';
     let minute: number | undefined;
@@ -284,6 +297,12 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
     return t;
   });
 
+  const eflClubs = EFL_CLUBS.map(([name, shortName, tla, color], i) => {
+    const t: Team = { id: 601 + i, name, shortName, tla, color, area: 'England' };
+    teams.set(t.id, t);
+    return t;
+  });
+
   const matches: Match[] = [];
 
   // Domestic leagues: weekly rounds, five played, this weekend's round, then two more.
@@ -299,6 +318,31 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
       });
     });
   }
+
+  // EFL Cup: third round already played (draws go to penalties), fourth round drawn.
+  const eflTeams = [...leagueTeams.get('PL')!, ...eflClubs];
+  const drawOrder = [...eflTeams];
+  for (let i = drawOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [drawOrder[i], drawOrder[j]] = [drawOrder[j], drawOrder[i]];
+  }
+  const third: Match[] = [];
+  for (let i = 0; i < drawOrder.length; i += 2) {
+    const m = makeMatch('EFL', drawOrder[i], drawOrder[i + 1], at(-4 + (i % 4 ? 1 : 0), i % 3 ? 18 : 19, 45), undefined, 'Third round');
+    if (m.status === 'FINISHED' && m.homeScore === m.awayScore) {
+      const homeWins = rand() < 0.5;
+      m.note = `${(homeWins ? m.home : m.away).shortName} win ${homeWins ? '5-4' : '4-3'} on penalties`;
+    }
+    third.push(m);
+  }
+  const winnerOf = (m: Match): Team => {
+    if (m.homeScore !== m.awayScore) return teams.get(m.homeScore! > m.awayScore! ? m.home.id : m.away.id)!;
+    return teams.get(m.note?.startsWith(`${m.home.shortName} win`) ? m.home.id : m.away.id)!;
+  };
+  const through = third.map(winnerOf);
+  for (let i = 0; i < through.length; i += 2)
+    third.push(makeMatch('EFL', through[i], through[i + 1], at(31 + (i % 4 ? 1 : 0), 19, 45), undefined, 'Fourth round'));
+  matches.push(...third);
 
   // Champions League league phase: 36 clubs, 8 matchdays, two played.
   const clTeams = [...[...leagueTeams.values()].flatMap((l) => l.slice(0, 4)), ...extraClubs];
@@ -411,6 +455,14 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
       standings: [{ rows: computeStandings(list.map(ref), compMatches) }],
     });
   }
+  data.set('EFL', {
+    competition: comp('EFL'),
+    season,
+    teams: eflTeams,
+    players: leagueTeams.get('PL')!.flatMap((t) => clubPlayers.get(t.id)!),
+    matches: third,
+    standings: [],
+  });
   const clMatches = matches.filter((m) => m.competition.code === 'CL');
   data.set('CL', {
     competition: comp('CL'),
@@ -462,6 +514,72 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
   return { season, competitions: COMPETITIONS, data, teams, clubPlayers, nationSquads, matches, transfers };
 }
 
+/** Demo headlines written from the demo's own results, fixtures and transfers. */
+export function buildDemoNews(w: DemoWorld, now = new Date()): NewsItem[] {
+  const DAY = 86_400_000;
+  const items: NewsItem[] = [];
+  const recent = w.matches
+    .filter((m) => m.status === 'FINISHED' && now.getTime() - Date.parse(m.utcDate) < 8 * DAY)
+    .sort((a, b) => b.utcDate.localeCompare(a.utcDate));
+  for (const m of recent) {
+    const hs = m.homeScore!;
+    const as = m.awayScore!;
+    const homeThrough = m.note ? m.note.startsWith(`${m.home.shortName} win`) : hs >= as;
+    const [win, lose, ws, ls] = homeThrough ? [m.home, m.away, hs, as] : [m.away, m.home, as, hs];
+    const where = m.stage ? `${m.competition.name} ${m.stage.toLowerCase()}` : m.competition.name;
+    const title = m.note
+      ? `${win.shortName} knock out ${lose.shortName} on penalties after ${hs}-${as} draw`
+      : hs === as
+        ? `${m.home.shortName} and ${m.away.shortName} share the points in ${hs}-${as} draw`
+        : ws - ls >= 3
+          ? `${win.shortName} thrash ${lose.shortName} ${ws}-${ls}`
+          : `${win.shortName} beat ${lose.shortName} ${ws}-${ls}`;
+    items.push({
+      id: `r${m.id}`,
+      title,
+      summary: `${where}: ${m.home.name} ${hs}-${as} ${m.away.name}.`,
+      url: `#/team/${win.id}`,
+      source: 'FootIQ Demo',
+      publishedAt: new Date(Date.parse(m.utcDate) + 2 * 3_600_000).toISOString(),
+      teamIds: [m.home.id, m.away.id],
+    });
+  }
+  for (const t of w.transfers) {
+    if (now.getTime() - Date.parse(t.date) > 30 * DAY || Date.parse(t.date) > now.getTime()) continue;
+    const title =
+      t.type === 'rumour'
+        ? `${t.to.shortName} monitoring ${t.from.shortName}'s ${t.playerName}`
+        : t.type === 'loan'
+          ? `${t.playerName} joins ${t.to.shortName} on loan from ${t.from.shortName}`
+          : `${t.to.shortName} sign ${t.playerName} from ${t.from.shortName}${t.type === 'free' ? ' on a free' : ` for ${t.fee}`}`;
+    items.push({
+      id: `t${t.id}`,
+      title,
+      summary: t.type === 'rumour' ? `Reports suggest a fee of ${t.fee?.replace(' (reported)', '')}.` : undefined,
+      url: t.playerId && t.competitionCode ? `#/player/${t.competitionCode}/${t.playerId}` : `#/team/${t.to.id}`,
+      source: 'FootIQ Demo',
+      publishedAt: t.date,
+      teamIds: [t.from.id, t.to.id],
+    });
+  }
+  const upcoming = w.matches
+    .filter((m) => m.status === 'SCHEDULED' && Date.parse(m.utcDate) - now.getTime() < 4 * DAY)
+    .filter((m) => m.competition.code !== 'PL' || m.home.id < 7)
+    .slice(0, 12);
+  for (const m of upcoming) {
+    items.push({
+      id: `p${m.id}`,
+      title: `Preview: ${m.home.shortName} v ${m.away.shortName}`,
+      summary: `${m.competition.name}${m.stage ? ` · ${m.stage}` : ''}. Kick-off ${new Date(m.utcDate).toLocaleString([], { weekday: 'long', hour: '2-digit', minute: '2-digit' })}.`,
+      url: `#/team/${m.home.id}`,
+      source: 'FootIQ Demo',
+      publishedAt: new Date(Math.min(now.getTime(), Date.parse(m.utcDate) - DAY)).toISOString(),
+      teamIds: [m.home.id, m.away.id],
+    });
+  }
+  return items.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+}
+
 let world: DemoWorld | null = null;
 const getWorld = () => (world ??= buildDemoWorld());
 
@@ -498,5 +616,15 @@ export const demoProvider: DataProvider = {
 
   async loadTransfers() {
     return getWorld().transfers;
+  },
+};
+
+export const demoNews: NewsProvider = {
+  id: 'demo',
+  async load(teams) {
+    const all = buildDemoNews(getWorld());
+    if (!teams?.length) return all;
+    const ids = new Set(teams.map((t) => t.id));
+    return all.filter((n) => n.teamIds?.some((id) => ids.has(id)));
   },
 };

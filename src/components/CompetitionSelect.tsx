@@ -3,6 +3,7 @@ import { useApp } from '../state/AppContext';
 
 const GROUP_LABEL: Record<CompetitionCategory, string> = {
   domestic: 'Leagues',
+  cup: 'Domestic cups',
   europe: 'European',
   international: 'International',
 };
@@ -21,7 +22,7 @@ export function CompetitionSelect({
   only?: CompetitionCategory[];
 }) {
   const { competitions } = useApp();
-  const cats = (only ?? (['domestic', 'europe', 'international'] as CompetitionCategory[])).filter((cat) =>
+  const cats = (only ?? (['domestic', 'cup', 'europe', 'international'] as CompetitionCategory[])).filter((cat) =>
     competitions.some((c) => c.category === cat),
   );
   return (

@@ -4,6 +4,7 @@ import { href } from '../state/router';
 
 const SECTIONS: [CompetitionCategory, string, string][] = [
   ['domestic', 'Leagues', 'Domestic leagues in England and around the world'],
+  ['cup', 'Domestic cups', 'Knockout cup competitions'],
   ['europe', 'European competitions', 'Club competitions across Europe'],
   ['international', 'International', 'National teams'],
 ];

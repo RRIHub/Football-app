@@ -1,10 +1,13 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
+import { LIVE_REFRESH_MS } from '../data/liveProvider';
 import {
+  news,
   provider,
   type Competition,
   type CompetitionData,
   type CompetitionRef,
   type Match,
+  type NewsItem,
   type Player,
   type Position,
   type Team,
@@ -88,7 +91,7 @@ export function useTeam(id: number | null) {
 
 /** Matches from `daysBack` days ago to `daysAhead` days ahead, across all competitions. */
 export function useMatchWindow(daysBack = 3, daysAhead = 6) {
-  return useResource<Match[]>(
+  const res = useResource<Match[]>(
     `window:${daysBack}:${daysAhead}`,
     () => {
       const from = new Date();
@@ -99,9 +102,28 @@ export function useMatchWindow(daysBack = 3, daysAhead = 6) {
       to.setUTCHours(23, 59, 59, 999);
       return provider.loadMatches(from, to);
     },
-    MIN,
+    provider.id === 'live' ? LIVE_REFRESH_MS : Infinity,
   );
+  // Keep scores fresh while any match is in play.
+  const hasLive = res.data?.some((m) => m.status === 'LIVE') ?? false;
+  const { reload } = res;
+  useEffect(() => {
+    if (!hasLive || provider.id !== 'live') return;
+    const t = setInterval(reload, LIVE_REFRESH_MS);
+    return () => clearInterval(t);
+  }, [hasLive, reload]);
+  return res;
 }
+
+/** Latest news; pass teams to get only stories about them. */
+export function useNews(teams?: { id: number; name: string; shortName?: string }[]) {
+  const key = teams ? `news:${teams.map((t) => t.id).sort((a, b) => a - b).join(',')}` : 'news:all';
+  // Headlines use short names ("Arsenal", not "Arsenal FC").
+  const query = teams?.map((t) => ({ id: t.id, name: t.shortName ?? t.name }));
+  return useResource<NewsItem[]>(teams && !teams.length ? null : key, () => news.load(query), 10 * MIN);
+}
+
+export const newsAttribution = news.attribution;
 
 export function useTransfers() {
   return useResource<Transfer[] | null>('transfers', () => provider.loadTransfers(), 30 * MIN);

@@ -1,6 +1,6 @@
 export type Position = 'GK' | 'DEF' | 'MID' | 'FWD';
 
-export type CompetitionCategory = 'domestic' | 'europe' | 'international';
+export type CompetitionCategory = 'domestic' | 'cup' | 'europe' | 'international';
 
 export interface Competition {
   code: string;
@@ -10,8 +10,8 @@ export interface Competition {
   flag?: string;
   emblem?: string;
   category: CompetitionCategory;
-  /** Knockout-style tournaments have group tables instead of one league table. */
-  format: 'league' | 'groups';
+  /** One table, several group tables, or knockout rounds with no table. */
+  format: 'league' | 'groups' | 'knockout';
 }
 
 export interface CompetitionRef {
@@ -76,6 +76,8 @@ export interface Match {
   away: TeamRef;
   homeScore: number | null;
   awayScore: number | null;
+  /** Extra result detail, e.g. "Arsenal win 4-3 on penalties". */
+  note?: string;
 }
 
 export interface StandingRow {
@@ -134,4 +136,25 @@ export interface DataProvider {
   loadTeam(id: number): Promise<TeamData>;
   /** null when the provider has no transfer feed. */
   loadTransfers(): Promise<Transfer[] | null>;
+}
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  summary?: string;
+  /** Link to the original article (or an in-app route for demo stories). */
+  url: string;
+  source: string;
+  publishedAt: string;
+  image?: string;
+  /** Teams the story is about, when the provider knows. */
+  teamIds?: number[];
+}
+
+export interface NewsProvider {
+  readonly id: 'guardian' | 'demo';
+  /** Credit shown with the news, as required by the provider. */
+  readonly attribution?: { label: string; url: string };
+  /** Latest football news, optionally only stories mentioning any of `teams`. */
+  load(teams?: { id: number; name: string }[]): Promise<NewsItem[]>;
 }

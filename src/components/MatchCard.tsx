@@ -46,6 +46,7 @@ export function MatchCard({ match, showCompetition = false }: { match: Match; sh
           <span className="side-name">{match.away.shortName}</span>
           <strong className="score">{showScore ? match.awayScore ?? 0 : ''}</strong>
         </a>
+        {match.note && <div className="match-note">{match.note}</div>}
       </div>
     </div>
   );
