@@ -3,26 +3,31 @@ import { useEffect, useState } from 'react';
 export type Route =
   | { page: 'home' }
   | { page: 'scores' }
-  | { page: 'players' }
-  | { page: 'teams' }
+  | { page: 'leagues' }
+  | { page: 'league'; code: string }
   | { page: 'team'; id: number }
-  | { page: 'player'; id: number }
+  | { page: 'players' }
+  | { page: 'player'; code: string; id: number }
   | { page: 'build' }
-  | { page: 'transfers' };
+  | { page: 'transfers' }
+  | { page: 'news' };
 
 export function parseHash(hash: string): Route {
-  const [page, id] = hash.replace(/^#\/?/, '').split('/');
-  const num = Number(id);
+  const [page, a, b] = hash.replace(/^#\/?/, '').split('/');
   switch (page) {
     case 'scores':
+    case 'leagues':
     case 'players':
-    case 'teams':
     case 'build':
     case 'transfers':
+    case 'news':
       return { page };
+    case 'league':
+      return a ? { page, code: decodeURIComponent(a) } : { page: 'leagues' };
     case 'team':
+      return Number.isInteger(Number(a)) && a ? { page, id: Number(a) } : { page: 'leagues' };
     case 'player':
-      return Number.isInteger(num) ? { page, id: num } : { page: `${page}s` as 'teams' | 'players' };
+      return a && Number.isInteger(Number(b)) && b ? { page, code: decodeURIComponent(a), id: Number(b) } : { page: 'players' };
     default:
       return { page: 'home' };
   }
@@ -31,12 +36,14 @@ export function parseHash(hash: string): Route {
 export const href = {
   home: '#/',
   scores: '#/scores',
+  leagues: '#/leagues',
   players: '#/players',
-  teams: '#/teams',
   build: '#/build',
   transfers: '#/transfers',
+  news: '#/news',
+  league: (code: string) => `#/league/${encodeURIComponent(code)}`,
   team: (id: number) => `#/team/${id}`,
-  player: (id: number) => `#/player/${id}`,
+  player: (code: string, id: number) => `#/player/${encodeURIComponent(code)}/${id}`,
 };
 
 export function useRoute(): Route {

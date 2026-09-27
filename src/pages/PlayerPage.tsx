@@ -1,16 +1,24 @@
 import { FollowButton } from '../components/FollowButton';
+import { LeagueTag } from '../components/LeagueTag';
+import { Stat } from '../components/Stat';
+import { ErrorBox, Loading } from '../components/Status';
 import { TeamBadge } from '../components/TeamBadge';
-import { TransferList } from '../components/TransferList';
+import { NO_TRANSFER_FEED, TransferList } from '../components/TransferList';
 import { fantasyPoints } from '../data/pricing';
-import { useApp } from '../state/AppContext';
+import { followPlayer, useApp, useCompetition, useTransfers } from '../state/AppContext';
 import { href } from '../state/router';
-import { Stat } from './HomePage';
 
 const POSITION_NAME = { GK: 'Goalkeeper', DEF: 'Defender', MID: 'Midfielder', FWD: 'Forward' } as const;
 
-export function PlayerPage({ id }: { id: number }) {
-  const { data, player, team, followedPlayers } = useApp();
-  const p = player(id);
+export function PlayerPage({ code, id }: { code: string; id: number }) {
+  const { followedPlayers } = useApp();
+  const comp = useCompetition(code);
+  const transfers = useTransfers();
+
+  if (comp.error && !comp.data) return <ErrorBox message={comp.error} onRetry={comp.reload} />;
+  if (!comp.data || comp.data.competition.code !== code) return <Loading what="player" />;
+
+  const p = comp.data.players.find((x) => x.id === id);
   if (!p)
     return (
       <section className="panel">
@@ -18,36 +26,45 @@ export function PlayerPage({ id }: { id: number }) {
         <a href={href.players}>Back to players</a>
       </section>
     );
-  const t = team(p.teamId);
   const s = p.stats;
   const perNinety = (n: number) => (s.minutes ? ((n / s.minutes) * 90).toFixed(2) : '—');
-  const transfers = data.transfers.filter((tr) => tr.playerId === p.id);
-  const rank = [...data.players].sort((a, b) => b.stats.goals - a.stats.goals).findIndex((x) => x.id === p.id) + 1;
+  const rank = s.goals
+    ? [...comp.data.players].sort((a, b) => b.stats.goals - a.stats.goals).findIndex((x) => x.id === p.id) + 1
+    : 0;
+  const history = (transfers.data ?? []).filter((t) => t.playerId === p.id);
 
   return (
     <>
-      <section className="panel profile" style={{ ['--club' as string]: t?.color }}>
+      <section className="panel profile" style={{ ['--club' as string]: p.team.color }}>
         <div className="row gap">
-          <TeamBadge team={t} size={56} />
+          <TeamBadge team={p.team} size={56} />
           <div className="grow">
             <h1>{p.name}</h1>
             <div className="muted">
-              {POSITION_NAME[p.position]} · <a href={href.team(p.teamId)}>{t?.name}</a> · {p.nationality}
+              {POSITION_NAME[p.position]} · <a href={href.team(p.teamId)}>{p.team.name}</a> · {p.nationality}
               {p.age ? ` · ${p.age} yrs` : ''}
             </div>
+            <div className="small">
+              <LeagueTag competition={p.competition} />
+            </div>
           </div>
-          <FollowButton following={followedPlayers.isFollowing(p.id)} onToggle={() => followedPlayers.toggle(p.id)} />
+          <FollowButton
+            following={followedPlayers.isFollowing(p.id)}
+            onToggle={() => followedPlayers.toggle(followPlayer(p))}
+          />
         </div>
       </section>
 
       <section className="panel">
-        <h2>Season stats</h2>
+        <h2>
+          Season stats <span className="muted small">· {p.competition.name}</span>
+        </h2>
         <div className="stat-row big">
           <Stat label="Appearances" value={s.appearances} />
           <Stat label="Goals" value={s.goals} />
           <Stat label="Assists" value={s.assists} />
           {(p.position === 'GK' || p.position === 'DEF') && <Stat label="Clean sheets" value={s.cleanSheets} />}
-          <Stat label="Goal ranking" value={s.goals ? `#${rank}` : '—'} />
+          <Stat label="Scoring rank" value={rank ? `#${rank}` : '—'} />
         </div>
         <div className="stat-row">
           <Stat label="Minutes" value={s.minutes || '—'} />
@@ -72,12 +89,8 @@ export function PlayerPage({ id }: { id: number }) {
       <section className="panel">
         <h2>Transfer history</h2>
         <TransferList
-          transfers={transfers}
-          empty={
-            data.transfersUnavailable
-              ? 'Transfer news is not available from the current data provider.'
-              : 'No recent transfer activity.'
-          }
+          transfers={history}
+          empty={transfers.data === null ? NO_TRANSFER_FEED : 'No recent transfer activity.'}
         />
       </section>
     </>

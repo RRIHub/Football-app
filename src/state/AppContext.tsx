@@ -1,83 +1,73 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { provider, type FootballData, type Player, type Team } from '../data';
-import { useFollowSet } from './storage';
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
+import { LIVE_REFRESH_MS } from '../data/liveProvider';
+import {
+  news,
+  provider,
+  type Competition,
+  type CompetitionData,
+  type CompetitionRef,
+  type Match,
+  type NewsItem,
+  type Player,
+  type Position,
+  type Team,
+  type TeamData,
+  type TeamRef,
+  type Transfer,
+} from '../data';
+import { useResource } from './resource';
+import { useFollowList } from './storage';
+
+export type FollowedTeam = TeamRef & { league?: CompetitionRef; national?: boolean };
+export interface FollowedPlayer {
+  id: number;
+  name: string;
+  position: Position;
+  team: TeamRef;
+  competition: CompetitionRef;
+}
+
+export const followTeam = (t: Team | FollowedTeam): FollowedTeam => ({
+  id: t.id,
+  name: t.name,
+  shortName: t.shortName,
+  tla: t.tla,
+  crest: t.crest,
+  color: t.color,
+  league: t.league,
+  national: t.national,
+});
+export const followPlayer = (p: Player): FollowedPlayer => ({
+  id: p.id,
+  name: p.name,
+  position: p.position,
+  team: p.team,
+  competition: p.competition,
+});
 
 interface AppState {
-  data: FootballData;
   source: 'live' | 'demo';
-  team: (id: number | undefined) => Team | undefined;
-  player: (id: number | undefined) => Player | undefined;
-  followedTeams: ReturnType<typeof useFollowSet>;
-  followedPlayers: ReturnType<typeof useFollowSet>;
+  competitions: Competition[];
+  competition: (code: string | undefined) => Competition | undefined;
+  followedTeams: ReturnType<typeof useFollowList<FollowedTeam>>;
+  followedPlayers: ReturnType<typeof useFollowList<FollowedPlayer>>;
 }
 
 const Ctx = createContext<AppState | null>(null);
 
-const LIVE_POLL_MS = 60_000;
-
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<FootballData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  const followedTeams = useFollowSet('footiq.followedTeams');
-  const followedPlayers = useFollowSet('footiq.followedPlayers');
-
-  useEffect(() => {
-    let cancelled = false;
-    setError(null);
-    provider
-      .load()
-      .then((d) => !cancelled && setData(d))
-      .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
-    return () => {
-      cancelled = true;
-    };
-  }, [attempt]);
-
-  // Keep scores fresh while any match is in play.
-  const hasLive = data?.matches.some((m) => m.status === 'LIVE') ?? false;
-  useEffect(() => {
-    if (!hasLive || provider.id !== 'live') return;
-    const timer = setInterval(() => {
-      provider
-        .loadMatches()
-        .then((matches) => setData((d) => (d ? { ...d, matches, fetchedAt: new Date().toISOString() } : d)))
-        .catch(() => {
-          /* keep showing the last good scores */
-        });
-    }, LIVE_POLL_MS);
-    return () => clearInterval(timer);
-  }, [hasLive]);
-
-  const value = useMemo<AppState | null>(() => {
-    if (!data) return null;
-    const teams = new Map(data.teams.map((t) => [t.id, t]));
-    const players = new Map(data.players.map((p) => [p.id, p]));
+  const followedTeams = useFollowList<FollowedTeam>('footiq.teams');
+  const followedPlayers = useFollowList<FollowedPlayer>('footiq.players');
+  const value = useMemo<AppState>(() => {
+    const byCode = new Map(provider.competitions.map((c) => [c.code, c]));
     return {
-      data,
       source: provider.id,
-      team: (id) => (id === undefined ? undefined : teams.get(id)),
-      player: (id) => (id === undefined ? undefined : players.get(id)),
+      competitions: provider.competitions,
+      competition: (code) => (code ? byCode.get(code) : undefined),
       followedTeams,
       followedPlayers,
     };
-  }, [data, followedTeams, followedPlayers]);
-
-  if (error)
-    return (
-      <div className="splash">
-        <h1 className="brand">Foot<span>IQ</span></h1>
-        <p>Couldn't load football data: {error}</p>
-        <button className="btn" onClick={() => setAttempt((a) => a + 1)}>Try again</button>
-      </div>
-    );
-  if (!value)
-    return (
-      <div className="splash">
-        <h1 className="brand">Foot<span>IQ</span></h1>
-        <p className="muted">Loading the latest scores…</p>
-      </div>
-    );
+  }, [followedTeams, followedPlayers]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -85,4 +75,56 @@ export function useApp(): AppState {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error('useApp must be used inside AppProvider');
   return ctx;
+}
+
+/* ---------- data hooks ---------- */
+
+const MIN = 60_000;
+
+export function useCompetition(code: string | null | undefined) {
+  return useResource<CompetitionData>(code ? `comp:${code}` : null, () => provider.loadCompetition(code!), 5 * MIN);
+}
+
+export function useTeam(id: number | null) {
+  return useResource<TeamData>(id === null ? null : `team:${id}`, () => provider.loadTeam(id!), 5 * MIN);
+}
+
+/** Matches from `daysBack` days ago to `daysAhead` days ahead, across all competitions. */
+export function useMatchWindow(daysBack = 3, daysAhead = 6) {
+  const res = useResource<Match[]>(
+    `window:${daysBack}:${daysAhead}`,
+    () => {
+      const from = new Date();
+      from.setUTCHours(0, 0, 0, 0);
+      from.setUTCDate(from.getUTCDate() - daysBack);
+      const to = new Date(from);
+      to.setUTCDate(to.getUTCDate() + daysBack + daysAhead);
+      to.setUTCHours(23, 59, 59, 999);
+      return provider.loadMatches(from, to);
+    },
+    provider.id === 'live' ? LIVE_REFRESH_MS : Infinity,
+  );
+  // Keep scores fresh while any match is in play.
+  const hasLive = res.data?.some((m) => m.status === 'LIVE') ?? false;
+  const { reload } = res;
+  useEffect(() => {
+    if (!hasLive || provider.id !== 'live') return;
+    const t = setInterval(reload, LIVE_REFRESH_MS);
+    return () => clearInterval(t);
+  }, [hasLive, reload]);
+  return res;
+}
+
+/** Latest news; pass teams to get only stories about them. */
+export function useNews(teams?: { id: number; name: string; shortName?: string }[]) {
+  const key = teams ? `news:${teams.map((t) => t.id).sort((a, b) => a - b).join(',')}` : 'news:all';
+  // Headlines use short names ("Arsenal", not "Arsenal FC").
+  const query = teams?.map((t) => ({ id: t.id, name: t.shortName ?? t.name }));
+  return useResource<NewsItem[]>(teams && !teams.length ? null : key, () => news.load(query), 10 * MIN);
+}
+
+export const newsAttribution = news.attribution;
+
+export function useTransfers() {
+  return useResource<Transfer[] | null>('transfers', () => provider.loadTransfers(), 30 * MIN);
 }

@@ -20,3 +20,13 @@ describe('live provider mapping', () => {
     expect(mapStatus('CANCELLED')).toBe('POSTPONED');
   });
 });
+
+describe('stage labels', () => {
+  it('prettifies football-data stage and group names', async () => {
+    const { prettyStage } = await import('../data/liveProvider');
+    expect(prettyStage('GROUP_A')).toBe('Group A');
+    expect(prettyStage('LAST_16')).toBe('Last 16');
+    expect(prettyStage('LEAGUE_STAGE')).toBe('League stage');
+    expect(prettyStage(null)).toBeUndefined();
+  });
+});

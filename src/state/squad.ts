@@ -15,52 +15,55 @@ export type Formation = keyof typeof FORMATIONS;
 export const BUDGET = 85;
 export const MAX_PER_CLUB = 3;
 
+/** Players are stored whole so a squad can mix leagues without reloading them all. */
 export interface Squad {
   name: string;
   formation: Formation;
-  playerIds: number[];
+  players: Player[];
   captainId: number | null;
 }
 
-export const EMPTY_SQUAD: Squad = { name: 'My FootIQ XI', formation: '4-3-3', playerIds: [], captainId: null };
+export const EMPTY_SQUAD: Squad = { name: 'My FootIQ XI', formation: '4-3-3', players: [], captainId: null };
 
-export function squadPlayers(squad: Squad, players: Player[]): Player[] {
-  const byId = new Map(players.map((p) => [p.id, p]));
-  return squad.playerIds.map((id) => byId.get(id)).filter((p): p is Player => Boolean(p));
+export function isSquad(v: unknown): v is Squad {
+  const s = v as Squad;
+  return (
+    typeof s === 'object' && s !== null && typeof s.name === 'string' && s.formation in FORMATIONS && Array.isArray(s.players)
+  );
 }
 
-export function spent(selected: Player[]): number {
-  return Math.round(selected.reduce((sum, p) => sum + p.price, 0) * 10) / 10;
+export function spent(squad: Squad): number {
+  return Math.round(squad.players.reduce((sum, p) => sum + p.price, 0) * 10) / 10;
 }
 
 /** Returns why a player can't be added, or null if they can. */
-export function addBlocker(squad: Squad, selected: Player[], player: Player): string | null {
-  if (squad.playerIds.includes(player.id)) return 'Already in your team';
+export function addBlocker(squad: Squad, player: Player): string | null {
+  const selected = squad.players;
+  if (selected.some((p) => p.id === player.id)) return 'Already in your team';
   const slots = FORMATIONS[squad.formation][player.position];
   if (selected.filter((p) => p.position === player.position).length >= slots)
     return `No ${player.position} slots left in ${squad.formation}`;
   if (selected.filter((p) => p.teamId === player.teamId).length >= MAX_PER_CLUB)
     return `Max ${MAX_PER_CLUB} players per club`;
-  if (spent(selected) + player.price > BUDGET + 1e-9) return 'Over budget';
+  if (spent(squad) + player.price > BUDGET + 1e-9) return 'Over budget';
   return null;
 }
 
 /** Drops players that no longer fit after a formation change (latest picks go first). */
-export function applyFormation(squad: Squad, players: Player[], formation: Formation): Squad {
+export function applyFormation(squad: Squad, formation: Formation): Squad {
   const limits = FORMATIONS[formation];
   const counts: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
-  const kept = squadPlayers(squad, players).filter((p) => ++counts[p.position] <= limits[p.position]);
-  const playerIds = kept.map((p) => p.id);
+  const players = squad.players.filter((p) => ++counts[p.position] <= limits[p.position]);
   return {
     ...squad,
     formation,
-    playerIds,
-    captainId: squad.captainId !== null && playerIds.includes(squad.captainId) ? squad.captainId : null,
+    players,
+    captainId: players.some((p) => p.id === squad.captainId) ? squad.captainId : null,
   };
 }
 
-export function projectedPoints(squad: Squad, selected: Player[]): number {
-  return selected.reduce((sum, p) => {
+export function projectedPoints(squad: Squad): number {
+  return squad.players.reduce((sum, p) => {
     const pts = fantasyPoints(p.position, p.stats);
     return sum + (p.id === squad.captainId ? pts * 2 : pts);
   }, 0);
