@@ -2,7 +2,12 @@ import type {
   Competition,
   CompetitionData,
   DataProvider,
+  Lineup,
+  LineupPlayer,
   Match,
+  MatchDetails,
+  MatchEvent,
+  MatchPlayer,
   NewsItem,
   NewsProvider,
   Player,
@@ -11,6 +16,7 @@ import type {
   Team,
   TeamData,
   TeamRef,
+  TeamStat,
   Transfer,
   TransferType,
 } from './types';
@@ -903,6 +909,179 @@ export function buildDemoNews(w: DemoWorld, now = new Date()): NewsItem[] {
   return items.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 }
 
+/* ---------- match details (demo) ---------- */
+
+const FORMATION: Record<Position, number> = { GK: 1, DEF: 4, MID: 3, FWD: 3 };
+const LINE: Record<Position, LineupPlayer['position']> = { GK: 'G', DEF: 'D', MID: 'M', FWD: 'F' };
+const SCORING_WEIGHT: Record<Position, number> = { GK: 0, DEF: 1, MID: 3, FWD: 6 };
+
+/**
+ * Goals, assists, cards, substitutions, line-ups and team stats for a demo
+ * match. Generated from the match id, so they're the same every time, and
+ * always agree with the score. Live matches only show what's happened so far.
+ */
+export function buildMatchDetails(w: DemoWorld, id: number): MatchDetails {
+  const match = w.matches.find((m) => m.id === id);
+  if (!match) throw new Error('Match not found.');
+  const rand = mulberry32(id * 7919);
+  const pick = <T,>(arr: T[]): T => arr[Math.floor(rand() * arr.length)];
+  const weighted = (players: Player[], weight: (p: Player) => number): Player | undefined => {
+    const total = players.reduce((n, p) => n + weight(p), 0);
+    if (!total) return players[0];
+    let r = rand() * total;
+    for (const p of players) if ((r -= weight(p)) <= 0) return p;
+    return players.at(-1);
+  };
+  const squadOf = (teamId: number) => {
+    const t = w.teams.get(teamId);
+    return (t?.national ? w.nationSquads.get(teamId) : w.clubPlayers.get(teamId)) ?? [];
+  };
+  const ref = (p: Player): MatchPlayer => ({ id: p.id, name: p.name, code: p.competition.code });
+
+  const sides = [match.home, match.away].map((team) => {
+    // Regular starters first, so the XI is the side's first-choice team.
+    const squad = [...squadOf(team.id)].sort((a, b) => b.stats.appearances - a.stats.appearances);
+    const xi = (Object.keys(FORMATION) as Position[]).flatMap((pos) => squad.filter((p) => p.position === pos).slice(0, FORMATION[pos]));
+    const bench = squad.filter((p) => !xi.includes(p));
+    return { team, xi, bench };
+  });
+
+  const coachName = () => `${pick(FIRST)} ${pick(LAST)}`;
+  const lineups: Lineup[] = sides.map(({ team, xi, bench }) => ({
+    teamId: team.id,
+    formation: '4-3-3',
+    coach: coachName(),
+    startXI: xi.map((p, i) => ({ ...ref(p), number: i + 1, position: LINE[p.position] })),
+    substitutes: bench.map((p, i) => ({ ...ref(p), number: 12 + i, position: LINE[p.position] })),
+  }));
+
+  if (match.status === 'SCHEDULED' || match.status === 'POSTPONED')
+    return { match, events: [], lineups: [], stats: [] };
+
+  // How far the match has got: the full 90, or the current minute.
+  const upTo = match.status === 'LIVE' ? (match.minute ?? 45) : 90;
+  const minute = (from = 1, to = upTo) => from + Math.floor(rand() * Math.max(1, to - from + 1));
+  const events: MatchEvent[] = [];
+
+  sides.forEach(({ team, xi }, s) => {
+    const goals = (s === 0 ? match.homeScore : match.awayScore) ?? 0;
+    const opponents = sides[1 - s].xi;
+    for (let g = 0; g < goals; g++) {
+      const r = rand();
+      const at = minute();
+      if (r < 0.05) {
+        const scorer = weighted(opponents, (p) => (p.position === 'DEF' ? 3 : 1))!;
+        events.push({ minute: at, teamId: team.id, type: 'own-goal', player: ref(scorer) });
+      } else if (r < 0.15) {
+        events.push({ minute: at, teamId: team.id, type: 'penalty', player: ref(weighted(xi, (p) => SCORING_WEIGHT[p.position])!) });
+      } else {
+        const scorer = weighted(xi, (p) => SCORING_WEIGHT[p.position])!;
+        const assister = rand() < 0.75 ? weighted(xi.filter((p) => p !== scorer), (p) => (p.position === 'GK' ? 0 : p.position === 'DEF' ? 2 : 4)) : undefined;
+        events.push({ minute: at, teamId: team.id, type: 'goal', player: ref(scorer), assist: assister && ref(assister) });
+      }
+    }
+    // Cards.
+    const outfield = xi.filter((p) => p.position !== 'GK');
+    const yellows = Math.floor(rand() * 4 * (upTo / 90));
+    const booked = new Set<Player>();
+    for (let c = 0; c < yellows; c++) {
+      const p = pick(outfield);
+      if (booked.has(p)) continue;
+      booked.add(p);
+      events.push({ minute: minute(10), teamId: team.id, type: 'yellow', player: ref(p) });
+    }
+    if (rand() < 0.04 * (upTo / 90))
+      events.push({ minute: minute(30), teamId: team.id, type: 'red', player: ref(pick(outfield.filter((p) => !booked.has(p)))) });
+  });
+
+  // Substitutions from the hour mark: like-for-like where possible, never for a player sent off.
+  const sentOff = new Set(events.filter((e) => e.type === 'red').map((e) => e.player?.id));
+  if (upTo >= 60)
+    sides.forEach(({ team, xi, bench }) => {
+      const count = Math.min(bench.length, 2 + Math.floor(rand() * 4), Math.floor((upTo - 55) / 7));
+      const off = [...xi.filter((p) => p.position !== 'GK' && !sentOff.has(p.id))].sort(() => rand() - 0.5).slice(0, count);
+      const available = bench.filter((p) => p.position !== 'GK');
+      for (const p of off) {
+        const on = available.find((b) => b.position === p.position) ?? available[0];
+        if (!on) break;
+        available.splice(available.indexOf(on), 1);
+        events.push({ minute: minute(58, Math.min(upTo, 88)), teamId: team.id, type: 'sub', playerOn: ref(on), playerOff: ref(p) });
+      }
+    });
+  // Anything a substituted player "did" after going off was done by their replacement.
+  const replaced = new Map<number, { at: number; by: MatchPlayer }>();
+  for (const e of events) if (e.type === 'sub' && e.playerOff?.id !== undefined && e.playerOn) replaced.set(e.playerOff.id, { at: e.minute, by: e.playerOn });
+  const onPitchAt = (p: MatchPlayer | undefined, at: number) => {
+    const r = p?.id !== undefined ? replaced.get(p.id) : undefined;
+    return r && at > r.at ? r.by : p;
+  };
+  for (const e of events) {
+    if (e.type === 'sub') continue;
+    e.player = onPitchAt(e.player, e.minute);
+    e.assist = onPitchAt(e.assist, e.minute);
+    if (e.assist && e.assist.id === e.player?.id) e.assist = undefined;
+  }
+  events.sort((a, b) => a.minute - b.minute);
+
+  // Team stats that agree with the goals and cards above.
+  const share = upTo / 90;
+  const possession = 38 + Math.floor(rand() * 25);
+  const count = (teamId: number, types: MatchEvent['type'][]) =>
+    events.filter((e) => e.teamId === teamId && types.includes(e.type)).length;
+  const sideStats = sides.map(({ team }, s) => {
+    const goals = (s === 0 ? match.homeScore : match.awayScore) ?? 0;
+    const onTarget = goals + Math.round((1 + rand() * 5) * share);
+    const shots = onTarget + Math.round((2 + rand() * 9) * share);
+    const passes = Math.round((s === 0 ? possession : 100 - possession) * 5.5 * share);
+    return {
+      possession: s === 0 ? possession : 100 - possession,
+      xg: Math.round((goals * 0.6 + onTarget * 0.15 + rand() * 0.6) * 100) / 100,
+      shots,
+      onTarget,
+      corners: Math.round(rand() * 9 * share),
+      fouls: Math.round((6 + rand() * 10) * share),
+      offsides: Math.round(rand() * 4 * share),
+      yellow: count(team.id, ['yellow']),
+      red: count(team.id, ['red', 'second-yellow']),
+      passes,
+      accuracy: 72 + Math.floor(rand() * 20),
+    };
+  });
+  // Saves: the other side's shots on target that weren't goals (own goals aside).
+  const saves = sides.map((_, s) => sideStats[1 - s].onTarget - count(sides[1 - s].team.id, ['goal', 'penalty']));
+  const row = (label: string, f: (x: (typeof sideStats)[number], s: number) => number | string): TeamStat => ({
+    label,
+    home: f(sideStats[0], 0),
+    away: f(sideStats[1], 1),
+  });
+  const stats: TeamStat[] = [
+    row('Possession', (x) => `${x.possession}%`),
+    row('Expected goals (xG)', (x) => x.xg.toFixed(2)),
+    row('Shots', (x) => x.shots),
+    row('Shots on target', (x) => x.onTarget),
+    row('Corners', (x) => x.corners),
+    row('Offsides', (x) => x.offsides),
+    row('Fouls', (x) => x.fouls),
+    row('Yellow cards', (x) => x.yellow),
+    row('Red cards', (x) => x.red),
+    row('Saves', (_, s) => Math.max(0, saves[s])),
+    row('Passes', (x) => x.passes),
+    row('Pass accuracy', (x) => `${x.accuracy}%`),
+  ];
+
+  const firstHalf = (teamId: number) => events.filter((e) => e.teamId === teamId && e.minute <= 45 && ['goal', 'penalty', 'own-goal'].includes(e.type)).length;
+  const halfTimeReached = match.status === 'FINISHED' || upTo > 45 || match.statusText === 'HT';
+  // No venue: an invented one would be wrong for real clubs.
+  return {
+    match,
+    referee: `${pick(FIRST)} ${pick(LAST)}`,
+    halfTime: halfTimeReached ? { home: firstHalf(match.home.id), away: firstHalf(match.away.id) } : undefined,
+    events,
+    lineups,
+    stats,
+  };
+}
+
 let world: DemoWorld | null = null;
 const getWorld = () => (world ??= buildDemoWorld());
 
@@ -950,6 +1129,10 @@ export const demoProvider: DataProvider = {
 
   async loadTransfers() {
     return getWorld().transfers;
+  },
+
+  async loadMatch(id) {
+    return buildMatchDetails(getWorld(), id);
   },
 };
 

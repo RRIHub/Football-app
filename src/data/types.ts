@@ -135,6 +135,77 @@ export interface TeamData {
   matches: Match[];
 }
 
+/** A player named in a match (scorer, assister, carded, substituted, in a line-up). */
+export interface MatchPlayer {
+  id?: number;
+  name: string;
+  /** Competition to open their player page in, if different from the match's. */
+  code?: string;
+}
+
+export type MatchEventType =
+  | 'goal'
+  | 'own-goal'
+  | 'penalty'
+  | 'missed-penalty'
+  | 'yellow'
+  | 'second-yellow'
+  | 'red'
+  | 'sub'
+  | 'var';
+
+export interface MatchEvent {
+  minute: number;
+  /** Stoppage-time minutes, e.g. 90+3 → minute 90, extra 3. */
+  extra?: number;
+  /** Team the event counts for (for an own goal, the team that benefits). */
+  teamId: number;
+  type: MatchEventType;
+  player?: MatchPlayer;
+  assist?: MatchPlayer;
+  /** Substitutions: who came on and who went off, when the provider says which is which. */
+  playerOn?: MatchPlayer;
+  playerOff?: MatchPlayer;
+  /** Substitutions where the provider doesn't say who came on and who went off. */
+  swapped?: [MatchPlayer, MatchPlayer];
+  detail?: string;
+}
+
+export interface LineupPlayer extends MatchPlayer {
+  number?: number;
+  /** G, D, M or F. */
+  position?: 'G' | 'D' | 'M' | 'F';
+  /** "row:column" on the pitch, goalkeeper on row 1 (API-Football). */
+  grid?: string;
+}
+
+export interface Lineup {
+  teamId: number;
+  formation?: string;
+  coach?: string;
+  startXI: LineupPlayer[];
+  substitutes: LineupPlayer[];
+}
+
+export interface TeamStat {
+  label: string;
+  home: number | string | null;
+  away: number | string | null;
+}
+
+export interface MatchDetails {
+  match: Match;
+  venue?: string;
+  referee?: string;
+  halfTime?: { home: number | null; away: number | null };
+  events: MatchEvent[];
+  /** [home, away] when known. */
+  lineups: Lineup[];
+  stats: TeamStat[];
+  /** Parts the data provider doesn't supply for this match (e.g. on its plan). */
+  unavailable?: ('events' | 'lineups' | 'stats')[];
+}
+
 export interface DataProvider {
   readonly id: 'api-football' | 'football-data' | 'demo';
   /** Human-readable credit for the footer. */
@@ -155,6 +226,8 @@ export interface DataProvider {
   readonly transfersByTeam?: boolean;
   /** Full stats for one player, when the competition's data doesn't include them. */
   loadPlayer?(code: string, id: number): Promise<Player | undefined>;
+  /** Everything about one match: goals, assists, cards, subs, line-ups, team stats. */
+  loadMatch(id: number): Promise<MatchDetails>;
 }
 
 export interface NewsItem {

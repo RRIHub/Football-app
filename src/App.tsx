@@ -14,10 +14,11 @@ import { BuildTeamPage } from './pages/BuildTeamPage';
 import { TransfersPage } from './pages/TransfersPage';
 import { NewsPage } from './pages/NewsPage';
 import { FavouritesPicker } from './pages/FavouritesPicker';
+import { MatchPage } from './pages/MatchPage';
 
 const NAV: { label: string; href: string; match: Route['page'][] }[] = [
   { label: 'My FootIQ', href: href.home, match: ['home', 'favourites'] },
-  { label: 'Scores', href: href.scores, match: ['scores'] },
+  { label: 'Scores', href: href.scores, match: ['scores', 'match'] },
   { label: 'News', href: href.news, match: ['news'] },
   { label: 'Leagues', href: href.leagues, match: ['leagues', 'league', 'team'] },
   { label: 'Players', href: href.players, match: ['players', 'player'] },
@@ -45,6 +46,8 @@ function Page({ route }: { route: Route }) {
       return <TransfersPage />;
     case 'news':
       return <NewsPage />;
+    case 'match':
+      return <MatchPage key={route.id} id={route.id} />;
     case 'favourites':
       return <FavouritesPicker onDone={() => (location.hash = href.home)} />;
     default:

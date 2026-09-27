@@ -4,7 +4,7 @@ import { href } from '../state/router';
 import { LeagueTag } from './LeagueTag';
 import { TeamBadge } from './TeamBadge';
 
-function statusLabel(m: Match): string {
+export function statusLabel(m: Match): string {
   switch (m.status) {
     case 'LIVE':
       return m.statusText ?? (m.minute ? `${m.minute}'` : 'LIVE');
@@ -27,28 +27,32 @@ export function MatchCard({ match, showCompetition = false }: { match: Match; sh
       : 0;
 
   return (
-    <div className={`match ${match.status === 'LIVE' ? 'live' : ''} ${followed ? 'followed' : ''} ${winner ? 'decided' : ''}`}>
+    // The whole card opens the match page (goals, line-ups, stats).
+    <a
+      href={href.match(match.id)}
+      className={`match ${match.status === 'LIVE' ? 'live' : ''} ${followed ? 'followed' : ''} ${winner ? 'decided' : ''}`}
+    >
       <span className={`status ${match.status.toLowerCase()}`}>{statusLabel(match)}</span>
       <div className="sides">
         {showCompetition && (
           <div className="match-comp">
-            <LeagueTag competition={match.competition} />
+            <LeagueTag competition={match.competition} plain />
             {match.stage && <span className="muted small"> · {match.stage}</span>}
           </div>
         )}
-        <a href={href.team(match.home.id)} className={`side ${winner === 1 ? 'win' : ''}`}>
+        <div className={`side ${winner === 1 ? 'win' : ''}`}>
           <TeamBadge team={match.home} size={22} />
           <span className="side-name">{match.home.shortName}</span>
           <strong className="score">{showScore ? match.homeScore ?? 0 : ''}</strong>
-        </a>
-        <a href={href.team(match.away.id)} className={`side ${winner === -1 ? 'win' : ''}`}>
+        </div>
+        <div className={`side ${winner === -1 ? 'win' : ''}`}>
           <TeamBadge team={match.away} size={22} />
           <span className="side-name">{match.away.shortName}</span>
           <strong className="score">{showScore ? match.awayScore ?? 0 : ''}</strong>
-        </a>
+        </div>
         {match.note && <div className="match-note">{match.note}</div>}
       </div>
-    </div>
+    </a>
   );
 }
 

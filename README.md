@@ -7,6 +7,7 @@ Football scores, player stats, news and transfers for leagues and cups around th
 - **Accounts**: create an account or sign in. New accounts pick their favourite clubs (search any club, or browse by league), then favourite players from those clubs' squads. Change them anytime with **Edit favourites**.
 - **My FootIQ**: a personal feed with live matches, today's games, your teams' last result and next fixture in any competition, your players' stats, and transfer news involving them.
 - **Scores**: pick any date (from the day strip, the arrows or a calendar), then see matches grouped by competition. Filter by live games, "my teams", internationals or a single competition, and use **Expand all** to open every competition. Live scores refresh automatically (every 20 seconds by default).
+- **Match pages**: tap any match for the score, half-time score, scorers, venue and referee, plus three tabs. **Summary** is a timeline of goals (with assists, penalties and own goals), cards and substitutions. **Line-ups** shows each formation on a pitch, the starting XI, substitutes and coach, with goals, assists, cards and substitutions marked. **Stats** compares possession, xG, shots, corners, fouls, saves, passes and more. Live matches refresh as they're played.
 - **News**: the latest football news, or only stories about the teams you follow. News also appears in your feed and on team pages.
 - **Leagues**: browse featured competitions, or every country's leagues and cups, including lower divisions. Each has a table (group tables for tournaments, knockout rounds for cups), matches (by round, or every match, result or fixture of the season), top scorers and assists, and a list of teams.
 - **Teams**: club and national team pages show the team's league, every competition it plays in, its league position and form, and results and fixtures labelled by competition (the latest six, or every match of the season). They also show the squad and transfers.
@@ -34,6 +35,7 @@ All scores, stats and transfers come from licensed football data APIs, so they'r
 | Live scores | Yes, with minute, half-time, extra time and penalties | Yes |
 | Squads & player stats | Full squads, per-player stats | Squads, top scorers |
 | Transfers | Confirmed transfers per club | Not available |
+| Match details (scorers, assists, cards, subs, line-ups, team stats) | Yes | Score, half-time, venue and referee on the free plan; the rest needs a paid plan with "deep data" |
 | Europa League, Conference League | Yes | Europa League on paid plans only |
 | MLS, Saudi Pro League | Yes | No |
 | League One, League Two, LaLiga 2, Ligue 2 | Yes | No (Championship and Ligue 1 are free) |

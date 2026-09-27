@@ -44,6 +44,7 @@ export const provider: DataProvider = {
   loadTeam: (id) => active().loadTeam(id),
   searchTeams: (q) => active().searchTeams(q),
   loadTransfers: (ids) => active().loadTransfers(ids),
+  loadMatch: (id) => active().loadMatch(id),
 };
 
 export const news: NewsProvider = {
