@@ -199,3 +199,15 @@ describe('demo season labels', () => {
     expect(w.data.get('PL')!.season).toBe('2026/27');
   });
 });
+
+describe('demo full seasons', () => {
+  it('schedules every league home and away, with each pairing played twice', () => {
+    const w = buildDemoWorld(new Date('2026-09-27T15:00:00Z'));
+    const pl = w.data.get('PL')!;
+    expect(pl.matches).toHaveLength(380);
+    expect(new Set(pl.matches.map((m) => m.matchday)).size).toBe(38);
+    const pairs = new Set(pl.matches.map((m) => `${m.home.id}-${m.away.id}`));
+    expect(pairs.size).toBe(380);
+    expect(w.data.get('ELC')!.matches).toHaveLength(24 * 23);
+  });
+});

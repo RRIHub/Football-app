@@ -510,12 +510,14 @@ export function buildDemoWorld(now = new Date()): DemoWorld {
 
   const matches: Match[] = [];
 
-  // Domestic leagues: weekly rounds, five played, this weekend's round, then two more.
+  // Domestic leagues: weekly rounds, five played, this weekend's round, then the rest of the season.
   const PLAYED = 5;
   const kickoffs: [number, number][] = [[11, 30], [14, 0], [14, 0], [14, 0], [16, 30], [19, 0], [13, 0], [15, 15], [17, 30], [19, 45]];
   for (const [code, list] of leagueTeams) {
     const slots = LEAGUE_TEAMS[code].kickoffs ?? kickoffs;
-    const rounds = roundRobin(list).slice(0, PLAYED + 3);
+    // A full home-and-away season, one round a week.
+    const firstHalf = roundRobin(list);
+    const rounds = [...firstHalf, ...firstHalf.map((round) => round.map(([h, a]) => [a, h] as [Team, Team]))];
     rounds.forEach((round, r) => {
       round.forEach(([home, away], i) => {
         const [h, m] = slots[i % slots.length];

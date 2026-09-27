@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { FollowButton } from '../components/FollowButton';
 import { LeagueTag } from '../components/LeagueTag';
 import { MatchList } from '../components/MatchCard';
@@ -24,6 +25,8 @@ export function TeamPage({ id }: { id: number }) {
   const league = res.data?.team.league;
   const leagueData = useCompetition(league?.code);
   const teamNews = useNews(res.data ? [res.data.team] : []);
+  const [showAllResults, setShowAllResults] = useState(false);
+  const [showAllFixtures, setShowAllFixtures] = useState(false);
 
   if (res.error && !res.data) return <ErrorBox message={res.error} onRetry={res.reload} />;
   if (!res.data || res.data.team.id !== id) return <Loading what="team" />;
@@ -32,8 +35,10 @@ export function TeamPage({ id }: { id: number }) {
   const row = leagueData.data?.standings.flatMap((g) => g.rows).find((r) => r.team.id === id);
   const games = [...res.data.matches].sort((a, b) => a.utcDate.localeCompare(b.utcDate));
   const finished = games.filter((m) => m.status === 'FINISHED');
-  const results = finished.slice(-6).reverse();
-  const fixtures = games.filter((m) => m.status === 'SCHEDULED' || m.status === 'LIVE').slice(0, 6);
+  const allResults = [...finished].reverse();
+  const allFixtures = games.filter((m) => m.status === 'SCHEDULED' || m.status === 'LIVE' || m.status === 'POSTPONED');
+  const results = showAllResults ? allResults : allResults.slice(0, 6);
+  const fixtures = showAllFixtures ? allFixtures : allFixtures.slice(0, 6);
   const form = finished.slice(-5).map((m) => {
     const us = m.home.id === id ? m.homeScore! : m.awayScore!;
     const them = m.home.id === id ? m.awayScore! : m.homeScore!;
@@ -97,10 +102,20 @@ export function TeamPage({ id }: { id: number }) {
         <section className="panel">
           <h2>Recent results</h2>
           <MatchList matches={results} empty="No results yet." showCompetition />
+          {allResults.length > 6 && (
+            <button className="btn ghost more" onClick={() => setShowAllResults((v) => !v)}>
+              {showAllResults ? 'Show fewer' : `Show all ${allResults.length} results`}
+            </button>
+          )}
         </section>
         <section className="panel">
           <h2>Upcoming fixtures</h2>
           <MatchList matches={fixtures} empty="No upcoming fixtures." showCompetition />
+          {allFixtures.length > 6 && (
+            <button className="btn ghost more" onClick={() => setShowAllFixtures((v) => !v)}>
+              {showAllFixtures ? 'Show fewer' : `Show all ${allFixtures.length} fixtures`}
+            </button>
+          )}
         </section>
       </div>
 

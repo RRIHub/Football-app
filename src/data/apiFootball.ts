@@ -377,18 +377,26 @@ export const apiFootballProvider: DataProvider = {
     ]);
     const raw = teamRes[0]?.team;
     if (!raw) throw new Error('Team not found');
-    const matches = [...last, ...next].map(mapFixture);
+    const recent = [...last, ...next].map(mapFixture);
     const byCode = new Map(comps.map((c) => [c.code, c]));
-    const played = [...new Set(matches.map((m) => m.competition.code))]
+    const played = [...new Set(recent.map((m) => m.competition.code))]
       .map((code) => byCode.get(code))
       .filter((c): c is Competition => Boolean(c));
     // The team's league is the domestic league it plays most often in.
     const counts = new Map<string, number>();
-    for (const m of matches) counts.set(m.competition.code, (counts.get(m.competition.code) ?? 0) + 1);
+    for (const m of recent) counts.set(m.competition.code, (counts.get(m.competition.code) ?? 0) + 1);
     const leagueComp = played
       .filter((c) => c.category === 'domestic')
       .sort((a, b) => (counts.get(b.code) ?? 0) - (counts.get(a.code) ?? 0))[0];
     const league = leagueComp ? { code: leagueComp.code, name: leagueComp.name } : undefined;
+    // With the league's season known, load every match of the season in all
+    // competitions, not just the last and next ten.
+    const season = leagueComp?.season;
+    const seasonFixtures = season
+      ? await get<AfFixture[]>(`/fixtures?team=${id}&season=${season}&timezone=${tz}`, 5 * MIN).catch(() => [])
+      : [];
+    const byId = new Map([...recent, ...seasonFixtures.map(mapFixture)].map((m) => [m.id, m]));
+    const matches = [...byId.values()].sort((a, b) => a.utcDate.localeCompare(b.utcDate));
     const team: Team = { ...teamRef(raw), area: raw.country ?? undefined, national: Boolean(raw.national), league };
     const statsComp = league ?? (played[0] ? { code: played[0].code, name: played[0].name } : { code: '', name: '' });
     const squad: Player[] = (squadRes[0]?.players ?? []).map((p) => {
@@ -407,9 +415,13 @@ export const apiFootballProvider: DataProvider = {
         stats,
       };
     });
+    // Every competition in the season, including cups played earlier on.
+    const competitionsPlayed = [...new Set(matches.map((m) => m.competition.code))]
+      .map((code) => byCode.get(code))
+      .filter((c): c is Competition => Boolean(c));
     return {
       team,
-      competitions: played.map((c) => ({ code: c.code, name: c.name })),
+      competitions: competitionsPlayed.map((c) => ({ code: c.code, name: c.name })),
       squad,
       matches,
     };

@@ -97,7 +97,16 @@ export function MatchList({
  * Featured competitions, live games and your teams' games start open; the
  * rest are collapsed so a busy day across hundreds of leagues stays readable.
  */
-export function MatchesByCompetition({ matches, empty }: { matches: Match[]; empty: string }) {
+export function MatchesByCompetition({
+  matches,
+  empty,
+  expandAll = false,
+}: {
+  matches: Match[];
+  empty: string;
+  /** Open every competition, not just featured/live/followed ones. */
+  expandAll?: boolean;
+}) {
   const { competitions, competition, followedTeams } = useApp();
   if (!matches.length) return <p className="muted">{empty}</p>;
   const index = new Map(competitions.map((c, i) => [c.code, i]));
@@ -109,6 +118,7 @@ export function MatchesByCompetition({ matches, empty }: { matches: Match[]; emp
       {groups.map(([code, ms]) => {
         const c = competition(code);
         const open =
+          expandAll ||
           !collapseRest ||
           c?.featured ||
           ms.some((m) => m.status === 'LIVE' || followedTeams.isFollowing(m.home.id) || followedTeams.isFollowing(m.away.id));
