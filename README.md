@@ -35,7 +35,7 @@ All scores, stats and transfers come from licensed football data APIs, so they'r
 | Live scores | Yes, with minute, half-time, extra time and penalties | Yes |
 | Squads & player stats | Full squads, per-player stats | Squads, top scorers |
 | Transfers | Confirmed transfers per club | Not available |
-| Match details (scorers, assists, cards, subs, line-ups, team stats) | Yes | Score, half-time, venue and referee on the free plan; the rest needs a paid plan with "deep data" |
+| Match details (scorers, assists, cards, subs, line-ups, team stats) | Yes | Score, half-time, venue and referee on the free plan; the rest needs a paid plan with "deep data", or comes from the [extra sources](#extra-match-details-sportmonks-openligadb-and-statsbomb-open-data) where they cover the match |
 | Europa League, Conference League | Yes | Europa League on paid plans only |
 | MLS, Saudi Pro League | Yes | No |
 | League One, League Two, LaLiga 2, Ligue 2 | Yes | No (Championship and Ligue 1 are free) |
@@ -85,6 +85,22 @@ Free-tier limitations:
 - International football is limited to the World Cup and the European Championship, so there are no international matches between those tournaments. For Copa América, the Africa Cup of Nations, the Nations League, qualifiers and friendlies, use API-Football: set `API_FOOTBALL_KEY` and redeploy, and FootIQ switches to it automatically.
 
 The provider asks for a credit, so the footer says "Data provided by football-data.org" in live mode. Keep it.
+
+### Extra match details: Sportmonks, OpenLigaDB and StatsBomb Open Data
+
+When the main provider doesn't have a match's goals, cards, substitutions, line-ups or stats (for example on football-data.org's free plan), the match page asks `/api/match-details` (code in `server/matchSources.ts`). It looks for the same match in:
+
+| Source | Covers | Gives | Setup |
+| --- | --- | --- | --- |
+| [Sportmonks](https://www.sportmonks.com) | Leagues on your Sportmonks plan (the free plan has only a few) | Goals and assists, cards, subs, line-ups and formations, team stats | Set `SPORTMONKS_API_TOKEN` |
+| [OpenLigaDB](https://www.openligadb.de) | Bundesliga, 2. Bundesliga, 3. Liga, DFB-Pokal | Goalscorers (with penalties and own goals), half-time score, venue | None (free, community-maintained) |
+| [StatsBomb Open Data](https://github.com/statsbomb/open-data) | Selected past tournaments and seasons, e.g. World Cup 2022, Euro 2024, Copa América 2024, AFCON 2023, MLS 2023 | Goals and assists, cards, subs, line-ups with positions, formations and coaches, stats including xG | None (free) |
+
+Providers use different match IDs, so a match is only used when the **date, both teams and the final score** all agree. Home and away are swapped when a source lists them the other way round. Each part (summary, line-ups, stats) comes from the best source that has it: Sportmonks first, then OpenLigaDB, then StatsBomb. The page credits whichever source it used. Players from these sources are shown by name only, since their player IDs don't match the app's player pages.
+
+StatsBomb's event files are a few MB per match, so the server condenses them into a summary and stats before sending them on. Found matches are cached at the CDN for a day. StatsBomb asks anyone using its open data to credit StatsBomb and show its logo; the match page credits it with a link. If you publish the app, check [their terms](https://github.com/statsbomb/open-data) and add the logo where it asks.
+
+`vercel.json` gives this function up to 30 seconds, because a first StatsBomb lookup downloads a few files.
 
 ### News and rumours
 

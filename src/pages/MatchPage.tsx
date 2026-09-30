@@ -5,7 +5,9 @@ import { statusLabel } from '../components/MatchCard';
 import { ErrorBox, Loading } from '../components/Status';
 import { TeamBadge } from '../components/TeamBadge';
 import type { Lineup, LineupPlayer, Match, MatchDetails, MatchEvent, MatchPlayer, TeamStat } from '../data/types';
-import { followTeam, useApp, useMatch } from '../state/AppContext';
+import { getConfig } from '../config';
+import { mergeExtras, missingParts } from '../data/matchExtras';
+import { followTeam, useApp, useMatch, useMatchExtras } from '../state/AppContext';
 import { href } from '../state/router';
 
 type Tab = 'summary' | 'lineups' | 'stats';
@@ -22,12 +24,17 @@ function PlayerName({ p, code }: { p: MatchPlayer | undefined; code: string }) {
 
 export function MatchPage({ id }: { id: number }) {
   const res = useMatch(id);
+  const base = res.data?.match.id === id ? res.data : undefined;
+  // Anything the main provider lacks is looked up in other sources.
+  const extras = useMatchExtras(base);
   const [tab, setTab] = useState<Tab>('summary');
 
   if (res.error && !res.data) return <ErrorBox message={res.error} onRetry={res.reload} />;
-  if (!res.data || res.data.match.id !== id) return <Loading what="match" />;
-  const d = res.data;
+  if (!base) return <Loading what="match" />;
+  const d = extras.data ? mergeExtras(base, extras.data) : base;
   const code = d.match.competition.code;
+  // Still asking other sources for parts that are missing.
+  const pending = extras.loading && !extras.data ? missingParts(base) : [];
 
   return (
     <>
@@ -47,11 +54,22 @@ export function MatchPage({ id }: { id: number }) {
           ))}
         </div>
         {tab === 'summary' ? (
-          <Timeline d={d} code={code} />
+          pending.includes('events') ? <Loading what="goals, cards and substitutions" /> : <Timeline d={d} code={code} />
         ) : tab === 'lineups' ? (
-          <Lineups d={d} code={code} />
+          pending.includes('lineups') ? <Loading what="line-ups" /> : <Lineups d={d} code={code} />
+        ) : pending.includes('stats') ? (
+          <Loading what="match stats" />
         ) : (
           <Stats d={d} />
+        )}
+        <SourceCredits d={d} />
+        {extras.error && !extras.data && (
+          <p className="muted small source-credits">
+            Couldn't check other sources for this match: {extras.error}{' '}
+            <button className="btn ghost small-btn" onClick={extras.reload}>
+              Try again
+            </button>
+          </p>
         )}
       </section>
     </>
@@ -236,10 +254,32 @@ function eventText(e: MatchEvent, code: string) {
 }
 
 function Unavailable({ what }: { what: string }) {
+  const also = getConfig().matchSources;
   return (
     <p className="muted">
-      {what} aren't available for this match from the current data provider. The README explains which provider includes
-      them.
+      {what} aren't available for this match from the current data provider
+      {also.length ? `, and weren't found in ${also.join(', ').replace(/, ([^,]*)$/, ' or $1')}` : ''}. The README explains
+      which sources cover which matches.
+    </p>
+  );
+}
+
+const PART_NAMES = { events: 'goals, cards and subs', lineups: 'line-ups', stats: 'stats' } as const;
+
+/** Credit for other sources that filled in this match (StatsBomb's terms require it). */
+function SourceCredits({ d }: { d: MatchDetails }) {
+  if (!d.sources?.length) return null;
+  return (
+    <p className="muted small source-credits">
+      {d.sources.map((s, i) => (
+        <span key={s.name}>
+          {i > 0 && ' · '}
+          {s.parts.map((p) => PART_NAMES[p]).join(', ').replace(/^./, (c) => c.toUpperCase())} from{' '}
+          <a href={s.url} target="_blank" rel="noreferrer">
+            {s.name}
+          </a>
+        </span>
+      ))}
     </p>
   );
 }

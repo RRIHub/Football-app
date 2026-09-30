@@ -2,6 +2,7 @@ import { defineConfig, loadEnv, type Connect, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { accountHandler } from './server/accounts.js';
 import { configHandler, proxyHandler, type Env } from './server/handlers.js';
+import { matchDetailsHandler } from './server/matchSources.js';
 
 /**
  * Serves the same /api handlers that run as Vercel functions in production,
@@ -14,6 +15,7 @@ function apiRoutes(env: Env): Plugin {
     '/api/api-football': proxyHandler('api-football', env),
     '/api/news': proxyHandler('news', env),
     '/api/account': accountHandler(env),
+    '/api/match-details': matchDetailsHandler(env),
   };
   const middleware: Connect.NextHandleFunction = (req, res, next) => {
     const path = (req.url ?? '').split('?')[0];

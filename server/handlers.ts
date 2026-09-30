@@ -3,6 +3,7 @@
 // environment here and never sent to the browser.
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { matchSourceNames } from './matchSources.js';
 import { hasAccountStore } from './store.js';
 
 export type Env = Record<string, string | undefined>;
@@ -19,6 +20,8 @@ export interface PublicConfig {
   apiFootballRequestsPerMinute: number;
   /** 'server' when accounts are stored server-side, 'device' when they can only live in the browser. */
   accounts: 'server' | 'device';
+  /** Extra sources for match details (line-ups, events, stats), in the order they're tried. */
+  matchSources: string[];
 }
 
 export function publicConfig(env: Env): PublicConfig {
@@ -29,6 +32,7 @@ export function publicConfig(env: Env): PublicConfig {
     liveRefreshSeconds: Number(env.LIVE_REFRESH_SECONDS) || 20,
     apiFootballRequestsPerMinute: Number(env.API_FOOTBALL_REQUESTS_PER_MINUTE) || 10,
     accounts: hasAccountStore(env) ? 'server' : 'device',
+    matchSources: matchSourceNames(env),
   };
 }
 

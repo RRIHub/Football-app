@@ -204,6 +204,8 @@ export interface MatchDetails {
   stats: TeamStat[];
   /** Parts the data provider doesn't supply for this match (e.g. on its plan). */
   unavailable?: ('events' | 'lineups' | 'stats')[];
+  /** Other sources that filled in parts of this match, for the credit line. */
+  sources?: { name: string; url: string; parts: ('events' | 'lineups' | 'stats')[] }[];
 }
 
 export interface DataProvider {
