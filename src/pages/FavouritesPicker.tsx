@@ -3,6 +3,8 @@ import { CompetitionSelect } from '../components/CompetitionSelect';
 import { ErrorBox, Loading } from '../components/Status';
 import { TeamBadge } from '../components/TeamBadge';
 import { provider, type Team } from '../data';
+import { countryByCode } from '../profile/countries';
+import { useProfile } from '../profile/ProfileContext';
 import { followPlayer, followTeam, useApp, useCompetition, useTeam, type FollowedTeam } from '../state/AppContext';
 import { useResource } from '../state/resource';
 
@@ -16,16 +18,42 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 /** Two-step picker: favourite clubs, then favourite players from those clubs. */
-export function FavouritesPicker({ welcomeName, onDone }: { welcomeName?: string; onDone: () => void }) {
+/** Two steps: favourite teams, then favourite players. In set-up they're steps 3 and 4. */
+export function FavouritesPicker({
+  welcomeName,
+  onDone,
+  onBack,
+  firstStep = 1,
+  totalSteps = 2,
+}: {
+  welcomeName?: string;
+  onDone: () => void;
+  /** Back from the first step (e.g. to the previous set-up step). */
+  onBack?: () => void;
+  firstStep?: number;
+  totalSteps?: number;
+}) {
   const [step, setStep] = useState<'clubs' | 'players'>('clubs');
   return step === 'clubs' ? (
-    <ClubStep welcomeName={welcomeName} onNext={() => setStep('players')} />
+    <ClubStep welcomeName={welcomeName} label={`Step ${firstStep} of ${totalSteps}`} onBack={onBack} onNext={() => setStep('players')} />
   ) : (
-    <PlayerStep onBack={() => setStep('clubs')} onDone={onDone} />
+    <PlayerStep label={`Step ${firstStep + 1} of ${totalSteps}`} onBack={() => setStep('clubs')} onDone={onDone} />
   );
 }
 
-function ClubStep({ welcomeName, onNext }: { welcomeName?: string; onNext: () => void }) {
+function ClubStep({
+  welcomeName,
+  label,
+  onBack,
+  onNext,
+}: {
+  welcomeName?: string;
+  label: string;
+  onBack?: () => void;
+  onNext: () => void;
+}) {
+  const { profile } = useProfile();
+  const nation = countryByCode(profile?.nationality);
   const { competitions, followedTeams } = useApp();
   const [query, setQuery] = useState('');
   const q = useDebounced(query.trim(), 350);
@@ -37,8 +65,8 @@ function ClubStep({ welcomeName, onNext }: { welcomeName?: string; onNext: () =>
 
   return (
     <section className="panel picker-step">
-      <p className="step-count muted small">Step 1 of 2</p>
-      <h2>{welcomeName ? `Welcome, ${welcomeName}! Pick your favourite clubs` : 'Your favourite clubs'}</h2>
+      <p className="step-count muted small">{label}</p>
+      <h2>{welcomeName ? `Welcome, @${welcomeName}! Pick your favourite teams` : 'Your favourite teams'}</h2>
       <p className="muted">
         Follow as many clubs and national teams as you like, from any league, including lower divisions.
       </p>
@@ -56,6 +84,11 @@ function ClubStep({ welcomeName, onNext }: { welcomeName?: string; onNext: () =>
         />
         {q.length < 3 && <CompetitionSelect value={code} onChange={setCode} />}
       </div>
+      {nation && !followedTeams.items.some((t) => t.national && t.name.toLowerCase() === nation.name.toLowerCase()) && (
+        <button className="pill nation-hint" onClick={() => setQuery(nation.name)}>
+          <span aria-hidden>{nation.flag}</span> Find the {nation.name} national team
+        </button>
+      )}
 
       {error && !teams ? (
         <ErrorBox message={error} />
@@ -80,8 +113,13 @@ function ClubStep({ welcomeName, onNext }: { welcomeName?: string; onNext: () =>
       )}
 
       <div className="step-actions">
+        {onBack && (
+          <button className="btn ghost" onClick={onBack}>
+            Back
+          </button>
+        )}
         <button className="btn" onClick={onNext}>
-          {followedTeams.items.length ? `Next: pick players (${followedTeams.items.length} clubs)` : 'Skip for now'}
+          {followedTeams.items.length ? `Next: pick players (${followedTeams.items.length} teams)` : 'Skip for now'}
         </button>
       </div>
     </section>
@@ -104,12 +142,12 @@ function SelectedTeams({ teams, onRemove }: { teams: FollowedTeam[]; onRemove: (
   );
 }
 
-function PlayerStep({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
+function PlayerStep({ label, onBack, onDone }: { label: string; onBack: () => void; onDone: () => void }) {
   const { followedTeams, followedPlayers } = useApp();
   const clubs = followedTeams.items.slice(0, 8);
   return (
     <section className="panel picker-step">
-      <p className="step-count muted small">Step 2 of 2</p>
+      <p className="step-count muted small">{label}</p>
       <h2>Your favourite players</h2>
       <p className="muted">Tap players from your clubs' squads to follow their stats and transfers.</p>
       {followedPlayers.items.length > 0 && (

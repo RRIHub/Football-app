@@ -1,6 +1,6 @@
-// Key-value storage for accounts. Production uses Redis over Upstash's REST API
+// Key-value storage for the username register. Production uses Redis over Upstash's REST API
 // (what Vercel's Marketplace "Upstash for Redis" integration provides); local
-// development uses a JSON file so accounts survive restarts.
+// development uses a JSON file so usernames survive restarts.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import type { Env } from './handlers.js';
@@ -122,8 +122,8 @@ export class FileStore extends MemoryStore {
   }
 }
 
-/** Whether accounts can be stored server-side here (Redis configured, or local development). */
-export function hasAccountStore(env: Env): boolean {
+/** Whether shared data can be stored server-side here (Redis configured, or local development). */
+export function hasSharedStore(env: Env): boolean {
   const url = env.KV_REST_API_URL ?? env.UPSTASH_REDIS_REST_URL;
   const token = env.KV_REST_API_TOKEN ?? env.UPSTASH_REDIS_REST_TOKEN;
   return Boolean(url && token) || !env.VERCEL;
@@ -132,10 +132,10 @@ export function hasAccountStore(env: Env): boolean {
 const stores = new Map<string, Store>();
 
 /**
- * The account store for this environment, or null when none is configured on a
+ * The shared store for this environment, or null when none is configured on a
  * host where local files don't persist (e.g. Vercel without Redis).
  */
-export function accountStore(env: Env): Store | null {
+export function sharedStore(env: Env): Store | null {
   const url = env.KV_REST_API_URL ?? env.UPSTASH_REDIS_REST_URL;
   const token = env.KV_REST_API_TOKEN ?? env.UPSTASH_REDIS_REST_TOKEN;
   const key = url && token ? `redis:${url}` : env.VERCEL ? '' : 'file';

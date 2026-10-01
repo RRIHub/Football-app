@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAccountField } from '../auth/accountData';
+import { useProfileField } from '../profile/profileData';
 
 function read<T>(key: string, fallback: T, validate?: (v: unknown) => v is T): T {
   try {
@@ -31,12 +31,12 @@ const isSnapshotList = <T,>(v: unknown): v is T[] =>
 const NO_ITEMS: never[] = [];
 
 /**
- * A followed list, saved with the signed-in account. It keeps a small
+ * A followed list, saved on this device with your profile. It keeps a small
  * snapshot of each item (name, club, league) so the feed can render before
  * that item's competition has loaded.
  */
 export function useFollowList<T extends { id: number }>(field: 'teams' | 'players') {
-  const [items, setItems] = useAccountField<T[]>(field, NO_ITEMS, isSnapshotList<T>);
+  const [items, setItems] = useProfileField<T[]>(field, NO_ITEMS, isSnapshotList<T>);
   const isFollowing = useCallback((id: number) => items.some((x) => x.id === id), [items]);
   const toggle = useCallback(
     (item: T) => setItems((cur) => (cur.some((x) => x.id === item.id) ? cur.filter((x) => x.id !== item.id) : [...cur, item])),

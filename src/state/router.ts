@@ -12,6 +12,7 @@ export type Route =
   | { page: 'transfers' }
   | { page: 'news' }
   | { page: 'favourites' }
+  | { page: 'profile' }
   | { page: 'match'; id: number };
 
 export function parseHash(hash: string): Route {
@@ -24,6 +25,7 @@ export function parseHash(hash: string): Route {
     case 'transfers':
     case 'news':
     case 'favourites':
+    case 'profile':
       return { page };
     case 'league':
       return a ? { page, code: decodeURIComponent(a) } : { page: 'leagues' };
@@ -47,6 +49,7 @@ export const href = {
   transfers: '#/transfers',
   news: '#/news',
   favourites: '#/favourites',
+  profile: '#/profile',
   league: (code: string) => `#/league/${encodeURIComponent(code)}`,
   team: (id: number) => `#/team/${id}`,
   match: (id: number) => `#/match/${id}`,

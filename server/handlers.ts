@@ -4,7 +4,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { matchSourceNames } from './matchSources.js';
-import { hasAccountStore } from './store.js';
+import { hasSharedStore } from './store.js';
 
 export type Env = Record<string, string | undefined>;
 
@@ -18,8 +18,8 @@ export interface PublicConfig {
   competitions: string;
   liveRefreshSeconds: number;
   apiFootballRequestsPerMinute: number;
-  /** 'server' when accounts are stored server-side, 'device' when they can only live in the browser. */
-  accounts: 'server' | 'device';
+  /** 'server' when usernames are checked for uniqueness on the server, 'device' when there's no shared store. */
+  profiles: 'server' | 'device';
   /** Extra sources for match details (line-ups, events, stats), in the order they're tried. */
   matchSources: string[];
 }
@@ -31,7 +31,7 @@ export function publicConfig(env: Env): PublicConfig {
     competitions: env.FOOTBALL_DATA_COMPETITIONS ?? '',
     liveRefreshSeconds: Number(env.LIVE_REFRESH_SECONDS) || 20,
     apiFootballRequestsPerMinute: Number(env.API_FOOTBALL_REQUESTS_PER_MINUTE) || 10,
-    accounts: hasAccountStore(env) ? 'server' : 'device',
+    profiles: hasSharedStore(env) ? 'server' : 'device',
     matchSources: matchSourceNames(env),
   };
 }

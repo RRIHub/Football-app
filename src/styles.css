@@ -362,3 +362,24 @@ a.match:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .stats-teams .away-key::after { background: #7c8db5; }
 .source-credits { margin: 16px 0 0; text-align: center; }
 .source-credits a { text-decoration: underline; }
+.nation-hint { margin: -4px 0 12px; display: inline-flex; gap: 6px; align-items: center; }
+
+/* Profile & set-up */
+.username-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; }
+.input-prefix { display: flex; align-items: center; gap: 6px; }
+.input-prefix > span { font-weight: 800; color: var(--muted); }
+.input-prefix .input { flex: 1; }
+.username-status { font-weight: 500; color: var(--muted); }
+.username-status.available { color: #22c55e; }
+.username-status.invalid, .username-status.taken, .username-status.error { color: #fca5a5; }
+.username-status.unchecked { color: var(--gold); }
+.form-ok { margin: 0; color: #86efac; font-size: 0.85rem; }
+.nationality .input { width: 100%; margin: 8px 0; }
+.selected-country { margin: 0; font-size: 1.05rem; }
+.country-pick { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; max-height: 300px; overflow-y: auto; }
+.country-pick .chip { padding: 4px 12px; }
+.avatar.big { width: 56px; height: 56px; font-size: 1.6rem; }
+.profile-card h1 { margin-bottom: 2px; }
+.btn.danger { background: #b91c1c; color: #fff; }
+.user-chip { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.85rem; }
+@media (max-width: 600px) { .user-name { display: none; } }

@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react';
-import { useAuth } from './auth/AuthContext';
 import { dataHealth } from './data/http';
 import { dataAttribution, useApp } from './state/AppContext';
 import { href, useRoute, type Route } from './state/router';
@@ -14,10 +13,13 @@ import { BuildTeamPage } from './pages/BuildTeamPage';
 import { TransfersPage } from './pages/TransfersPage';
 import { NewsPage } from './pages/NewsPage';
 import { FavouritesPicker } from './pages/FavouritesPicker';
+import { ProfilePage } from './pages/ProfilePage';
+import { countryByCode } from './profile/countries';
+import { useProfile } from './profile/ProfileContext';
 import { MatchPage } from './pages/MatchPage';
 
 const NAV: { label: string; href: string; match: Route['page'][] }[] = [
-  { label: 'My FootIQ', href: href.home, match: ['home', 'favourites'] },
+  { label: 'My FootIQ', href: href.home, match: ['home', 'favourites', 'profile'] },
   { label: 'Scores', href: href.scores, match: ['scores', 'match'] },
   { label: 'News', href: href.news, match: ['news'] },
   { label: 'Leagues', href: href.leagues, match: ['leagues', 'league', 'team'] },
@@ -48,6 +50,8 @@ function Page({ route }: { route: Route }) {
       return <NewsPage />;
     case 'match':
       return <MatchPage key={route.id} id={route.id} />;
+    case 'profile':
+      return <ProfilePage />;
     case 'favourites':
       return <FavouritesPicker onDone={() => (location.hash = href.home)} />;
     default:
@@ -58,22 +62,11 @@ function Page({ route }: { route: Route }) {
 export function App() {
   const route = useRoute();
   const { source } = useApp();
-  const { user, signOut, finishOnboarding } = useAuth();
+  const { profile } = useProfile();
   const problems = useSyncExternalStore(dataHealth.subscribe, dataHealth.get);
-  const dataError = problems.filter((p) => p.kind === 'data').map((p) => p.message).join(' ');
-  const accountError = problems.filter((p) => p.kind === 'account').map((p) => p.message).join(' ');
+  const dataError = problems.map((p) => p.message).join(' ');
   const attribution = dataAttribution();
-
-  // New accounts pick their favourite clubs and players first.
-  if (user && !user.onboarded)
-    return (
-      <main className="container onboarding">
-        <h1 className="brand">
-          Foot<span>IQ</span>
-        </h1>
-        <FavouritesPicker welcomeName={user.name} onDone={finishOnboarding} />
-      </main>
-    );
+  const nation = countryByCode(profile?.nationality);
 
   return (
     <>
@@ -86,12 +79,15 @@ export function App() {
             <a href={href.favourites} className="muted small">
               Edit favourites
             </a>
-            <span className="avatar" title={user?.email} aria-hidden>
-              {user?.name.charAt(0).toUpperCase()}
-            </span>
-            <button className="btn ghost small-btn" onClick={signOut}>
-              Sign out
-            </button>
+            <a href={href.profile} className="user-chip" title="Your profile">
+              <span className="avatar" aria-hidden>
+                {profile?.username.charAt(0).toUpperCase()}
+              </span>
+              <span className="user-name">
+                @{profile?.username}
+                {nation && <span aria-hidden> {nation.flag}</span>}
+              </span>
+            </a>
           </div>
         </div>
         <nav className="nav">
@@ -113,11 +109,7 @@ export function App() {
           <strong>Live data isn't loading.</strong> {dataError}
         </div>
       )}
-      {accountError && (
-        <div className="error-banner" role="alert">
-          <strong>Your changes aren't being saved.</strong> {accountError}
-        </div>
-      )}
+
       <main className="container">
         <Page route={route} />
       </main>

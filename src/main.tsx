@@ -1,23 +1,20 @@
 import { StrictMode, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { AccountDataProvider } from './auth/accountData';
-import { AuthProvider, useAuth } from './auth/AuthContext';
 import { fetchConfig, setConfig } from './config';
-import { LoginPage } from './pages/LoginPage';
+import { SetupPage } from './pages/SetupPage';
+import { ProfileDataProvider } from './profile/profileData';
+import { ProfileProvider, useProfile } from './profile/ProfileContext';
 import { AppProvider } from './state/AppContext';
 import './styles.css';
 
 function Gate() {
-  const { backend, user } = useAuth();
-  if (!user) return <LoginPage />;
+  const { profile } = useProfile();
   return (
-    // Keyed by account so switching users starts from a clean slate.
-    <AccountDataProvider key={user.id} backend={backend} user={user}>
-      <AppProvider userId={user.id}>
-        <App />
-      </AppProvider>
-    </AccountDataProvider>
+    <AppProvider userId={profile?.id ?? 'new'}>
+      {/* First visit (or set-up not finished): username, nationality, favourites. */}
+      {profile?.setupDone ? <App /> : <SetupPage />}
+    </AppProvider>
   );
 }
 
@@ -41,9 +38,11 @@ function Bootstrap() {
 
   if (state === 'ready')
     return (
-      <AuthProvider>
-        <Gate />
-      </AuthProvider>
+      <ProfileDataProvider>
+        <ProfileProvider>
+          <Gate />
+        </ProfileProvider>
+      </ProfileDataProvider>
     );
   return (
     <div className="splash">

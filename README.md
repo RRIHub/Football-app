@@ -1,10 +1,10 @@
 # FootIQ
 
-Football scores, player stats, news and transfers for leagues and cups around the world, including second and third divisions, plus the Champions League and international football. There's also a build-your-own-team game. Sign in and follow your favourite clubs, national teams and players.
+Football scores, player stats, news and transfers for leagues and cups around the world, including second and third divisions, plus the Champions League and international football. There's also a build-your-own-team game. Pick a username and follow your favourite clubs, national teams and players.
 
 ## Features
 
-- **Accounts**: create an account or sign in. New accounts pick their favourite clubs (search any club, or browse by league), then favourite players from those clubs' squads. Change them anytime with **Edit favourites**.
+- **Your profile**: no accounts or passwords. Choose a unique username, your nationality (FootIQ suggests your national team), then favourite clubs (search any club, or browse by league) and favourite players from those clubs' squads. Change them anytime with **Edit favourites** or on your **Profile** page.
 - **My FootIQ**: a personal feed with live matches, today's games, your teams' last result and next fixture in any competition, your players' stats, and transfer news involving them.
 - **Scores**: pick any date (from the day strip, the arrows or a calendar), then see matches grouped by competition. Filter by live games, "my teams", internationals or a single competition, and use **Expand all** to open every competition. Live scores refresh automatically (every 20 seconds by default).
 - **Match pages**: tap any match for the score, half-time score, scorers, venue and referee, plus three tabs. **Summary** is a timeline of goals (with assists, penalties and own goals), cards and substitutions. **Line-ups** shows each formation on a pitch, the starting XI, substitutes and coach, with goals, assists, cards and substitutions marked. **Stats** compares possession, xG, shots, corners, fouls, saves, passes and more. Live matches refresh as they're played.
@@ -14,7 +14,7 @@ Football scores, player stats, news and transfers for leagues and cups around th
 - **Players**: a searchable, sortable stats table for any league, filterable by position and club. Player pages show which league the stats come from.
 - **Build XI**: pick 11 players from any league in one of six formations within an £85m budget (max 3 per club). Choose a captain for double points and see your season points.
 - **Transfers**: confirmed signings, loans and free transfers for your clubs. Rumours come from news stories, each linked to its source.
-- Accounts work on any device, and favourites and your XI are saved to the account (see [Accounts](#accounts)).
+- Favourites and your XI are saved on your device (see [Usernames and profiles](#usernames-and-profiles)).
 
 ## Getting started
 
@@ -113,23 +113,29 @@ As with the football data, the key is added server-side by `/api/news` and never
 
 Transfer rumours on the Transfers page are Guardian stories about transfers. They are reports, not confirmed deals, and each one links to the original article. No licensed data feed covers rumours, so they come from news.
 
-### Accounts
+### Usernames and profiles
 
-Accounts are stored on the server, so people can sign in with the same email and password on any device. Their favourite clubs, favourite players and Build XI team are saved to the account and follow them.
+There are no accounts, emails or passwords. The first time someone opens FootIQ they:
 
-- **Staying signed in:** signing in sets a secure, HttpOnly session cookie that lasts 30 days and renews on every visit. People stay signed in until they sign out or don't visit for 30 days.
-- **Passwords** are hashed with scrypt on the server and never stored as typed. Sessions are stored only as a SHA-256 of the cookie token.
-- **Protection:** 10 failed sign-ins for an email within 15 minutes pause further attempts. Cross-site requests to the account API are refused.
-- **Saving:** changes to favourites or the XI save to the account about half a second later. If saving fails, a red banner says so.
+1. choose a **username** (3–20 letters, numbers, dots or underscores),
+2. pick their **nationality** (optional; the next step suggests their national team), and
+3. pick favourite **clubs** and **players**.
 
-The account API is one route, `/api/account` (code in `server/accounts.ts`). It needs storage:
+Usernames are unique, ignoring case: if `GoalMachine` is taken, so is `goalmachine`. The name is checked while typing.
+
+- **What's on the server:** only the username register, `/api/profile` (code in `server/usernames.ts`). Each entry holds the username, a random profile ID and a SHA-256 hash of a secret that only the claiming device knows. A name can only be changed or freed by that device. Claiming is atomic, so two people can't get the same name. Cross-site requests are refused and checks are rate-limited.
+- **What's on the device:** the profile (username, nationality), favourite clubs and players, and the Build XI team, in the browser's local storage. They don't sync between devices or browsers.
+- **Profile page:** change the username or nationality, edit favourites, or **Start over**, which frees the username and clears the profile from this device.
+- Favourites saved by older versions of FootIQ on the same browser are carried over when the profile is created.
+
+The register needs storage:
 
 | Where | Storage |
 | --- | --- |
 | Vercel | Redis via **Upstash** (see [Deploying to Vercel](#deploying-to-vercel)) |
 | `npm run dev` / `npm run preview` | A local file, `.footiq-dev-db.json` (git-ignored) |
 
-If a Vercel deployment has no Redis connected, accounts can't be stored on the server. The login screen then says that accounts only work in this browser, and the app falls back to saving them in the browser. If someone used a browser-only account before, their favourites are copied into their server account the first time they sign in with the same email on that browser.
+If a Vercel deployment has no Redis connected, usernames can't be checked for uniqueness. Set-up still works, and says so under the username field.
 
 ### Adding another data source
 
@@ -157,9 +163,9 @@ The handlers live in `server/handlers.ts`. The files in `api/` expose them as Ve
 
 1. Import the repository in Vercel. The Vite preset works as is: build command `npm run build`, output directory `dist`. The `api/` folder is deployed as serverless functions automatically.
 2. In **Project → Settings → Environment Variables**, add `FOOTBALL_DATA_API_KEY` (and `GUARDIAN_API_KEY` for news). Tick the environments you deploy to, including **Production**.
-3. For accounts, open **Project → Storage** (or the Vercel Marketplace), add **Upstash for Redis** and connect it to this project. Vercel adds its connection variables (`KV_REST_API_URL` and `KV_REST_API_TOKEN`) for you. `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` work too, if you set up Upstash yourself.
+3. For unique usernames, open **Project → Storage** (or the Vercel Marketplace), add **Upstash for Redis** and connect it to this project. Vercel adds its connection variables (`KV_REST_API_URL` and `KV_REST_API_TOKEN`) for you. `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` work too, if you set up Upstash yourself.
 4. **Redeploy.** Vercel only gives environment variables to deployments made after they were added.
-5. Check it: open `https://<your-app>/api/config`. It should show `"dataSource":"football-data"` and `"accounts":"server"`. If `dataSource` is `"demo"` or `accounts` is `"device"`, the variables aren't reaching that deployment; check their names and environments, then redeploy.
+5. Check it: open `https://<your-app>/api/config`. It should show `"dataSource":"football-data"` and `"profiles":"server"`. If `dataSource` is `"demo"` or `profiles` is `"device"`, the variables aren't reaching that deployment; check their names and environments, then redeploy.
 
 Other hosts work too, as long as they run the handlers in `server/handlers.ts` at the same `/api/*` routes.
 

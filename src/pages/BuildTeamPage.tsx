@@ -21,15 +21,15 @@ import {
   type Formation,
   type Squad,
 } from '../state/squad';
-import { useAccountField } from '../auth/accountData';
+import { useProfileField } from '../profile/profileData';
 import { usePersistentState } from '../state/storage';
 
 const ROWS: Position[] = ['FWD', 'MID', 'DEF', 'GK'];
 const POSITION_NAME = { GK: 'Goalkeeper', DEF: 'Defender', MID: 'Midfielder', FWD: 'Forward' } as const;
 
 export function BuildTeamPage() {
-  // Saved with the account, so each person has their own XI on any device.
-  const [squad, setSquad] = useAccountField<Squad>('xi', EMPTY_SQUAD, isSquad);
+  // Saved on this device with your profile.
+  const [squad, setSquad] = useProfileField<Squad>('xi', EMPTY_SQUAD, isSquad);
   const [picking, setPicking] = useState<Position | null>(null);
 
   const money = spent(squad);

@@ -15,8 +15,8 @@ export interface Client {
 type Listener = () => void;
 
 export interface Problem {
-  /** 'data' for live football data and news; 'account' for saving account changes. */
-  kind: 'data' | 'account';
+  /** Live football data and news. */
+  kind: 'data';
   message: string;
 }
 
