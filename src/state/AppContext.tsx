@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import { liveRefreshMs } from '../data/http';
+import { fetchExtras, missingParts } from '../data/matchExtras';
+import type { SourceDetails } from '../../server/matchSources';
 import {
   news,
   provider,
@@ -166,6 +168,20 @@ export function useMatch(id: number) {
     return () => clearInterval(t);
   }, [live, reload]);
   return res;
+}
+
+/**
+ * Parts of a match the main provider lacks, from other sources. Demo matches
+ * are fictional, so they're never looked up elsewhere.
+ */
+export function useMatchExtras(d: MatchDetails | undefined) {
+  const wanted = d && provider.id !== 'demo' && missingParts(d).length > 0;
+  const finished = d?.match.status === 'FINISHED';
+  return useResource<SourceDetails[]>(
+    wanted ? `extras:${d.match.id}:${d.match.status}` : null,
+    () => fetchExtras(d!),
+    finished ? Infinity : 60_000,
+  );
 }
 
 /**

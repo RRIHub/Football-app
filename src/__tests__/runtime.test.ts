@@ -5,7 +5,7 @@ import { selectNews, selectProvider } from '../data';
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  setConfig({ dataSource: 'demo', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device' });
+  setConfig({ dataSource: 'demo', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device', matchSources: [] });
 });
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -32,9 +32,9 @@ describe('fetchConfig', () => {
 
 describe('provider selection', () => {
   it('follows the server config', () => {
-    expect(selectProvider({ dataSource: 'football-data', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device' }).id).toBe('football-data');
-    expect(selectProvider({ dataSource: 'api-football', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device' }).id).toBe('api-football');
-    expect(selectNews({ dataSource: 'demo', news: true, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device' }).id).toBe('guardian');
+    expect(selectProvider({ dataSource: 'football-data', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device', matchSources: [] }).id).toBe('football-data');
+    expect(selectProvider({ dataSource: 'api-football', news: false, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device', matchSources: [] }).id).toBe('api-football');
+    expect(selectNews({ dataSource: 'demo', news: true, competitions: '', liveRefreshSeconds: 20, apiFootballRequestsPerMinute: 10, accounts: 'device', matchSources: [] }).id).toBe('guardian');
   });
 });
 

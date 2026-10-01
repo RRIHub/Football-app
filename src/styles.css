@@ -360,3 +360,5 @@ a.match:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .stats-teams .home-key::before, .stats-teams .away-key::after { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
 .stats-teams .home-key::before { background: var(--accent); }
 .stats-teams .away-key::after { background: #7c8db5; }
+.source-credits { margin: 16px 0 0; text-align: center; }
+.source-credits a { text-decoration: underline; }
